@@ -6,7 +6,7 @@ class WebSocketService {
   private url: string;
   private isAuthenticated = false;
   private isWsAuthenticated = false;
-  private messageHandlers: Map<string, (data: any) => void> = new Map();
+  private messageHandlers: Map<string, Set<(data: any) => void>> = new Map();
   private connectionHandlers: Array<(connected: boolean) => void> = [];
   private messageQueue: any[] = [];
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -15,7 +15,6 @@ class WebSocketService {
     this.url = url;
   }
 
-  // ✅ Add public getter for WebSocket instance
   get websocket(): WebSocket | null {
     return this.ws;
   }
@@ -101,6 +100,23 @@ class WebSocketService {
     }
   }
 
+  onMessage(type: string, handler: (data: any) => void): () => void {
+    if (!this.messageHandlers.has(type)) {
+      this.messageHandlers.set(type, new Set());
+    }
+    
+    const handlers = this.messageHandlers.get(type)!;
+    handlers.add(handler);
+    
+    // Return cleanup function
+    return () => {
+      handlers.delete(handler);
+      if (handlers.size === 0) {
+        this.messageHandlers.delete(type);
+      }
+    };
+  }
+
   private handleMessage(message: any) {
     const { type, ...data } = message;
     
@@ -117,23 +133,31 @@ class WebSocketService {
       this.isWsAuthenticated = false;
     }
 
-    const handler = this.messageHandlers.get(type);
-    if (handler) {
-      handler(data);
+    const handlers = this.messageHandlers.get(type);
+    if (handlers) {
+      handlers.forEach(handler => {
+        try {
+          handler(data);
+        } catch (error) {
+          console.error(`Error in message handler for ${type}:`, error);
+        }
+      });
     }
 
-    const allHandler = this.messageHandlers.get('*');
-    if (allHandler) {
-      allHandler(message);
+    const allHandlers = this.messageHandlers.get('*');
+    if (allHandlers) {
+      allHandlers.forEach(handler => {
+        try {
+          handler(message);
+        } catch (error) {
+          console.error('Error in wildcard handler:', error);
+        }
+      });
     }
   }
 
   private notifyConnectionHandlers(connected: boolean) {
     this.connectionHandlers.forEach(handler => handler(connected));
-  }
-
-  onMessage(type: string, handler: (data: any) => void) {
-    this.messageHandlers.set(type, handler);
   }
 
   onConnection(handler: (connected: boolean) => void) {
@@ -185,12 +209,9 @@ class WebSocketService {
   }
 }
 
-// Create and export the instance
 const wsUrl = import.meta.env.DEV
   ? "ws://localhost:8001/admin/ws"
   : "ws://195.35.6.222/admin/ws";
 
 export const wsService = new WebSocketService(wsUrl);
-
-// Default export as well for compatibility
 export default wsService;

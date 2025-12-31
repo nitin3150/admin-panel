@@ -32,37 +32,64 @@ const AppContent = () => {
 
   useSessionTimeout(30);
 
-  useEffect(() => {
-    // Connect WebSocket once on app start
-    wsService.connect().catch(err => {
-      console.error("WebSocket connection failed", err);
-    });
+  // useEffect(() => {
+  //   // Connect WebSocket once on app start
+  //   wsService.connect().catch(err => {
+  //     console.error("WebSocket connection failed", err);
+  //   });
   
-    // If user is authenticated (from persisted storage), send token immediately
-    if (isAuthenticated && user?.token) {
-      console.log('User already authenticated, sending token to WebSocket');
-      wsService.send({ 
-        type: 'authenticate', 
-        payload: { token: user.token }
-      });
-    }
+  //   // If user is authenticated (from persisted storage), send token immediately
+  //   if (isAuthenticated && user?.token) {
+  //     console.log('User already authenticated, sending token to WebSocket');
+  //     wsService.send({ 
+  //       type: 'authenticate', 
+  //       payload: { token: user.token }
+  //     });
+  //   }
+  
+  //   return () => {
+  //     if (wsService.isConnected()) {
+  //       wsService.disconnect();
+  //     }
+  //   };
+  // }, []); // Empty dependency array - only run once
+
+  // // Send token when user becomes authenticated (e.g., after login)
+  // useEffect(() => {
+  //   console.log("in the app.tsx")
+  //   if (isAuthenticated && user?.token && wsService.isConnected()) {
+  //     console.log('User authenticated, sending token to WebSocket');
+  //     wsService.send({ 
+  //       type: 'authenticate', 
+  //       payload: { token: user.token }
+  //     });
+  //   }
+  // }, [isAuthenticated, user?.token]);
+
+  useEffect(() => {
+    const initializeWebSocket = async () => {
+      try {
+        await wsService.connect();
+        
+        if (isAuthenticated && user?.token) {
+          console.log('User authenticated, sending token to WebSocket');
+          wsService.send({ 
+            type: 'authenticate', 
+            payload: { token: user.token }
+          });
+        }
+      } catch (err) {
+        console.error("WebSocket connection failed", err);
+      }
+    };
+  
+    initializeWebSocket();
   
     return () => {
       if (wsService.isConnected()) {
         wsService.disconnect();
       }
     };
-  }, []); // Empty dependency array - only run once
-
-  // Send token when user becomes authenticated (e.g., after login)
-  useEffect(() => {
-    if (isAuthenticated && user?.token && wsService.isConnected()) {
-      console.log('User authenticated, sending token to WebSocket');
-      wsService.send({ 
-        type: 'authenticate', 
-        payload: { token: user.token }
-      });
-    }
   }, [isAuthenticated, user?.token]);
 
   return (

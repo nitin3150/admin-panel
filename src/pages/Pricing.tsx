@@ -23,8 +23,23 @@ interface PricingConfig {
   appFee: {
     type: string;
     value: number;
-    min_fee: number;
-    max_fee: number;
+    // min_fee: number;
+    // max_fee: number;
+  };
+  porterFee: number;
+  printoutFee: {
+    doc:{
+      A4_black: number;
+      A4_color: number;
+      A3_black: number;
+      A3_color: number;
+      legal_black: number;
+      legal_color: number;
+    };
+    photo:{
+      passport: number;
+      other: number;
+    };
   };
   updatedAt?: string;
   updatedBy?: string;
@@ -45,17 +60,32 @@ export default function Pricing() {
   });
   
   const [appConfig, setAppConfig] = useState({
-    type: "percentage",
-    value: "2.5", 
-    min_fee: "0.50",           
-    max_fee: "5.00",           
+    type: "fixed",
+    value: "5", 
+    // min_fee: "0.50",           
+    // max_fee: "5.00",           
   });
 
-  // Pricing simulator state
-  const [simulatorData, setSimulatorData] = useState({
-    orderValue: "35.00",
-    distance: "5.2",
+  const [porter,setPorter] = useState(0);
+  const [print,setPrint] = useState({
+    doc:{
+      A4_black: 2,
+      A4_color: 5,
+      A3_black: 5,
+      A3_color: 10,
+      legal_black: 3,
+      legal_color: 5,
+    },
+    photo: {
+      passport: 5,
+      other: 10,
+    },
   });
+  // Pricing simulator state
+  // const [simulatorData, setSimulatorData] = useState({
+  //   orderValue: "35.00",
+  //   distance: "5.2",
+  // });
 
   // Load existing pricing configuration on component mount
   useEffect(() => {
@@ -66,9 +96,8 @@ export default function Pricing() {
     });
 
     const handlePricingConfigData = (data: any) => {
-      console.log('Received pricing config data:', data);
       const config = data.data || {};
-  
+      // console.log('Received pricing config data:', config.data);
       if (config.delivery_fee) {
         setDeliveryConfig({
           type: config.delivery_fee.type || "fixed",
@@ -80,13 +109,35 @@ export default function Pricing() {
         });
       }
       
-      if (config.app_fee) {
+      if (config.appFee) {
         setAppConfig({
-          type: config.app_fee.type || "percentage",
-          value: config.app_fee.value?.toString(),
-          min_fee: config.app_fee.min_fee?.toString(),
-          max_fee: config.app_fee.max_fee?.toString(),
+          type: config.appFee.type || "fixed",
+          value: config.appFee.value?.toString(),
+          // min_fee: config.app_fee.min_fee?.toString(),
+          // max_fee: config.app_fee.max_fee?.toString(),
         });
+      }
+
+      if (config.porterFee){
+        setPorter(config.porterFee || 0)
+      }
+
+      if (config.printoutFee){
+        const printData = config.printoutFee
+        setPrint({
+          doc: {
+            A4_black: printData.doc.A4_black || 0,
+            A4_color: printData.doc.A4_color || 0,
+            A3_black: printData.doc.A3_black || 0,
+            A3_color: printData.doc.A3_color || 0,
+            legal_black: printData.doc.legal_black || 0,
+            legal_color: printData.doc.legal_color || 0,
+          },
+          photo: {
+            passport: printData.photo.passport || 0,
+            other: printData.photo.other || 0,
+          }
+        })
       }
       
       setIsLoading(false);
@@ -133,75 +184,75 @@ export default function Pricing() {
     };
   }, [toast]);
 
-  const calculateDeliveryFee = (orderValue: number, distance: number) => {
-    if (orderValue >= parseFloat(deliveryConfig.free_delivery_threshold)) { // Changed
-      return 0;
-    }
+  // const calculateDeliveryFee = (orderValue: number, distance: number) => {
+  //   if (orderValue >= parseFloat(deliveryConfig.free_delivery_threshold)) { // Changed
+  //     return 0;
+  //   }
   
-    let fee = 0;
-    switch (deliveryConfig.type) {
-      case "fixed":
-        fee = parseFloat(deliveryConfig.base_fee); // Changed from base_fee
-        break;
-      case "distance_based":
-        fee = parseFloat(deliveryConfig.base_fee) + (distance * parseFloat(deliveryConfig.per_km_rate)); // Changed
-        break;
-      case "order_value_based":
-        fee = orderValue * 0.1;
-        break;
-    }
+  //   let fee = 0;
+  //   switch (deliveryConfig.type) {
+  //     case "fixed":
+  //       fee = parseFloat(deliveryConfig.base_fee); // Changed from base_fee
+  //       break;
+  //     case "distance_based":
+  //       fee = parseFloat(deliveryConfig.base_fee) + (distance * parseFloat(deliveryConfig.per_km_rate)); // Changed
+  //       break;
+  //     case "order_value_based":
+  //       fee = orderValue * 0.1;
+  //       break;
+  //   }
   
-    // Apply min/max constraints
-    if (deliveryConfig.min_fee) { // Changed from min_fee
-      fee = Math.max(fee, parseFloat(deliveryConfig.min_fee));
-    }
-    if (deliveryConfig.max_fee) { // Changed from max_fee
-      fee = Math.min(fee, parseFloat(deliveryConfig.max_fee));
-    }
+  //   // Apply min/max constraints
+  //   if (deliveryConfig.min_fee) { // Changed from min_fee
+  //     fee = Math.max(fee, parseFloat(deliveryConfig.min_fee));
+  //   }
+  //   if (deliveryConfig.max_fee) { // Changed from max_fee
+  //     fee = Math.min(fee, parseFloat(deliveryConfig.max_fee));
+  //   }
   
-    return fee;
-  };
+  //   return fee;
+  // };
   
-  const calculateAppFee = (orderValue: number) => {
-    let fee = 0;
-    switch (appConfig.type) {
-      case "fixed":
-        fee = parseFloat(appConfig.value);
-        break;
-      case "percentage":
-        fee = orderValue * (parseFloat(appConfig.value) / 100);
-        break;
-      case "tiered":
-        if (orderValue < 25) {
-          fee = 1.00;
-        } else if (orderValue < 50) {
-          fee = 1.50;
-        } else {
-          fee = 2.00;
-        }
-        break;
-    }
+  // const calculateAppFee = (orderValue: number) => {
+  //   let fee = 0;
+  //   switch (appConfig.type) {
+  //     case "fixed":
+  //       fee = parseFloat(appConfig.value);
+  //       break;
+  //     case "percentage":
+  //       fee = orderValue * (parseFloat(appConfig.value) / 100);
+  //       break;
+  //     case "tiered":
+  //       if (orderValue < 25) {
+  //         fee = 1.00;
+  //       } else if (orderValue < 50) {
+  //         fee = 1.50;
+  //       } else {
+  //         fee = 2.00;
+  //       }
+  //       break;
+  //   }
   
-    // Apply min/max constraints
-    if (appConfig.min_fee) { // Changed from min_fee
-      fee = Math.max(fee, parseFloat(appConfig.min_fee));
-    }
-    if (appConfig.max_fee) { // Changed from max_fee
-      fee = Math.min(fee, parseFloat(appConfig.max_fee));
-    }
+  //   // Apply min/max constraints
+  //   if (appConfig.min_fee) { // Changed from min_fee
+  //     fee = Math.max(fee, parseFloat(appConfig.min_fee));
+  //   }
+  //   if (appConfig.max_fee) { // Changed from max_fee
+  //     fee = Math.min(fee, parseFloat(appConfig.max_fee));
+  //   }
   
-    return fee;
-  };
+  //   return fee;
+  // };
 
   const handleSave = () => {
-    if (!saveReason.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please provide a reason for this pricing change",
-        variant: "destructive",
-      });
-      return;
-    }
+    // if (!saveReason.trim()) {
+    //   toast({
+    //     title: "Validation Error",
+    //     description: "Please provide a reason for this pricing change",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
 
     const configData: PricingConfig = {
       delivery_fee: {
@@ -215,8 +266,23 @@ export default function Pricing() {
       appFee: {
         type: appConfig.type,
         value: parseFloat(appConfig.value),
-        min_fee: parseFloat(appConfig.min_fee),
-        max_fee: parseFloat(appConfig.max_fee),
+        // min_fee: parseFloat(appConfig.min_fee),
+        // max_fee: parseFloat(appConfig.max_fee),
+      },
+      porterFee: porter,
+      printoutFee: {
+        doc: {
+          A4_black: print.doc.A4_black,
+          A4_color: print.doc.A4_color,
+          A3_black: print.doc.A3_black,
+          A3_color: print.doc.A3_color,
+          legal_black: print.doc.legal_black,
+          legal_color: print.doc.legal_color,
+        },
+        photo:{
+          passport: print.photo.passport,
+          other: print.photo.other,
+        },
       },
       updatedAt: new Date().toISOString(),
     };
@@ -225,11 +291,8 @@ export default function Pricing() {
     setIsSaving(true);
 
     wsService.send({
-      type: 'save_pricing_config',
-      data: {
-        config: configData,
-        auditReason: saveReason
-      }
+      type: 'update_pricing_config',
+      data: configData
     });
 
     toast({
@@ -250,11 +313,11 @@ export default function Pricing() {
     });
   };
 
-  const simulatedOrderValue = parseFloat(simulatorData.orderValue) || 0;
-  const simulatedDistance = parseFloat(simulatorData.distance) || 0;
-  const simulatedDeliveryFee = calculateDeliveryFee(simulatedOrderValue, simulatedDistance);
-  const simulatedAppFee = calculateAppFee(simulatedOrderValue);
-  const totalFees = simulatedDeliveryFee + simulatedAppFee;
+  // const simulatedOrderValue = parseFloat(simulatorData.orderValue) || 0;
+  // const simulatedDistance = parseFloat(simulatorData.distance) || 0;
+  // const simulatedDeliveryFee = calculateDeliveryFee(simulatedOrderValue, simulatedDistance);
+  // const simulatedAppFee = calculateAppFee(simulatedOrderValue);
+  // const totalFees = simulatedDeliveryFee + simulatedAppFee;
 
   if (isLoading) {
     return (
@@ -431,7 +494,7 @@ export default function Pricing() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="app-min-fee">Minimum Fee (₹)</Label>
                 <Input
@@ -454,13 +517,183 @@ export default function Pricing() {
                   disabled={isSaving}
                 />
               </div>
+            </div> */}
+          </CardContent>
+        </Card>
+
+        {/* Porter Fee Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Porter Fee Configuration
+            </CardTitle>
+            <CardDescription>
+              Configure Porter service fees
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+          <div className="space-y-2">
+                <Label htmlFor="app-max-fee">Per-Kg Fee (₹)</Label>
+                <Input
+                  id="porter-fee"
+                  type="number"
+                  step="0.01"
+                  value={porter}
+                  onChange={(e) => setPorter(parseFloat(e.target.value))}
+                  disabled={isSaving}
+                />
+              </div>
+          </CardContent>
+        </Card>
+
+        {/* Printout Fee Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Printout Fee Configuration
+            </CardTitle>
+            <CardDescription>
+              Configure Printout service fees
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="A4-black-fee">A4 B&W Price (₹)</Label>
+              <Input
+                id="A4-black-price"
+                type="number"
+                value={print.doc.A4_black}
+                onChange={(e) => setPrint(prev => ({
+                  ...prev,
+                  doc: {
+                    ...prev.doc,
+                    A4_black: prev.doc.A4_black + parseInt(e.target.value),
+                  },
+                }))}
+                disabled={isSaving}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="A4-black-fee">A4 Color Price (₹)</Label>
+              <Input
+                id="A4-color-price"
+                type="number"
+                value={print.doc.A4_color}
+                onChange={(e) => setPrint(prev => ({
+                  ...prev,
+                  doc: {
+                    ...prev.doc,
+                    A4_color: prev.doc.A4_color + parseInt(e.target.value),
+                  },
+                }))}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="A4-black-fee">A3 B&W Price (₹)</Label>
+              <Input
+                id="A3-black-price"
+                type="number"
+                value={print.doc.A3_black}
+                onChange={(e) => setPrint(prev => ({
+                  ...prev,
+                  doc: {
+                    ...prev.doc,
+                    A3_black: prev.doc.A3_black + parseInt(e.target.value),
+                  },
+                }))}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="A4-black-fee">A3 Color Price (₹)</Label>
+              <Input
+                id="A3-color-price"
+                type="number"
+                value={print.doc.A3_color}
+                onChange={(e) => setPrint(prev => ({
+                  ...prev,
+                  doc: {
+                    ...prev.doc,
+                    A3_color: prev.doc.A3_color + parseInt(e.target.value),
+                  },
+                }))}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="legal-black-fee">Legal B&W Price (₹)</Label>
+              <Input
+                id="legal-black-price"
+                type="number"
+                value={print.doc.legal_black}
+                onChange={(e) => setPrint(prev => ({
+                  ...prev,
+                  doc: {
+                    ...prev.doc,
+                    legal_black: prev.doc.legal_black + parseInt(e.target.value),
+                  },
+                }))}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="legal-color-fee">Legal Color Price (₹)</Label>
+              <Input
+                id="legal-color-price"
+                type="number"
+                value={print.doc.legal_color}
+                onChange={(e) => setPrint(prev => ({
+                  ...prev,
+                  doc: {
+                    ...prev.doc,
+                    legal_color: prev.doc.legal_color + parseInt(e.target.value),
+                  },
+                }))}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="passport_fee">Passport Photo Price (₹)</Label>
+              <Input
+                id="passport-price"
+                type="number"
+                value={print.photo.passport}
+                onChange={(e) => setPrint(prev => ({
+                  ...prev,
+                  photo: {
+                    ...prev.photo,
+                    passport: prev.photo.passport + parseInt(e.target.value),
+                  },
+                }))}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="other-fee">Other Photo Price (₹)</Label>
+              <Input
+                id="Other-price"
+                type="number"
+                value={print.photo.other}
+                onChange={(e) => setPrint(prev => ({
+                  ...prev,
+                  photo: {
+                    ...prev.photo,
+                    other: prev.photo.other + parseInt(e.target.value),
+                  },
+                }))}
+                disabled={isSaving}
+              />
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Pricing Simulator */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5" />
@@ -543,7 +776,7 @@ export default function Pricing() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Save Button */}
       <div className="flex justify-end">

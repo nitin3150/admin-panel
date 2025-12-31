@@ -51,7 +51,7 @@ export const ProductsTable = ({
         <TableRow>
           <TableHead>Images</TableHead>
           <TableHead>Name</TableHead>
-          <TableHead>Price</TableHead>
+          <TableHead>Selling Price</TableHead>
           <TableHead>Stock</TableHead>
           <TableHead>Category</TableHead>
           <TableHead>Status</TableHead>
@@ -97,7 +97,7 @@ export const ProductsTable = ({
                 </div>
               </TableCell>
               <TableCell className="font-medium">{product.name}</TableCell>
-              <TableCell>{formatCurrency(product.price)}</TableCell>
+              <TableCell>{formatCurrency(product.selling_price)}</TableCell>
               <TableCell>
                 <span className={product.stock < 1 ? 'text-destructive font-medium' : ''}>
                   {product.stock}

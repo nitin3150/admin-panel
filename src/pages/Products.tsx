@@ -21,6 +21,7 @@ export default function Products() {
 
   useEffect(() => {
     const handleProductsData = (data: any) => {
+      console.log(data)
       setProducts(data.products || []);
       setCategories(data.categories || []);
       setBrands(data.brands || []);
