@@ -20,6 +20,7 @@ export default function Login() {
 
   // Redirect if already authenticated
   useEffect(() => {
+    console.log("on the login screen")
     if (isAuthenticated) {
       console.log('User already authenticated, redirecting to dashboard');
       navigate("/dashboard", { replace: true });

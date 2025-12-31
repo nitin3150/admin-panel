@@ -38,9 +38,9 @@ export const ProductFormDialog = ({
   const [images, setImages] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: "",
-    cost_price: "",
-    mrp: "",
-    price: "",
+    actual_price: "",
+    selling_price: "",
+    discount: "",
     stock: "",
     category: "",
     brand: "",
@@ -56,7 +56,8 @@ export const ProductFormDialog = ({
       setFormData({
         name: product.name || "",
         actual_price: product.actual_price?.toString() || "",
-        price: product.price?.toString() || "",
+        selling_price: product.selling_price?.toString() || "",
+        discount: product.discount?.toString() || "",
         stock: product.stock?.toString() || "",
         category: product.category || "",
         brand: product.brand || "",
@@ -71,7 +72,8 @@ export const ProductFormDialog = ({
       setFormData({
         name: "",
         actual_price: "",
-        price: "",
+        selling_price: "",
+        discount: "",
         stock: "",
         category: "",
         brand: "",
@@ -88,7 +90,7 @@ export const ProductFormDialog = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isValidPrice(formData.price)) {
+    if (!isValidPrice(formData.selling_price)) {
       toast({ title: "Invalid Price", variant: "destructive" });
       return;
     }
@@ -101,7 +103,8 @@ export const ProductFormDialog = ({
     const data = {
       name: formData.name,
       actual_price: formData.actual_price ? parseFloat(formData.actual_price) : null,
-      price: parseFloat(formData.price),
+      selling_price: parseFloat(formData.selling_price),
+      discount: ((parseFloat(formData.actual_price) - parseFloat(formData.selling_price)) / parseFloat(formData.actual_price)) * 100,
       stock: parseInt(formData.stock),
       category: formData.category,
       brand: formData.brand,
@@ -162,18 +165,18 @@ export const ProductFormDialog = ({
                 id="price"
                 type="number"
                 step="0.01"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                value={formData.selling_price}
+                onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
                 required
               />
             </div>
             <div className="space-y-2">
               <Label>Discount</Label>
               <div className="h-10 flex items-center">
-                {formData.actual_price && formData.price && parseFloat(formData.actual_price) > parseFloat(formData.price) ? (
+                {formData.actual_price && formData.selling_price && parseFloat(formData.actual_price) > parseFloat(formData.selling_price) ? (
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-bold text-green-600">
-                      {Math.round(((parseFloat(formData.actual_price) - parseFloat(formData.price)) / parseFloat(formData.actual_price)) * 100)}%
+                      {Math.round(((parseFloat(formData.actual_price) - parseFloat(formData.selling_price)) / parseFloat(formData.actual_price)) * 100)}%
                     </span>
                     <span className="text-sm text-muted-foreground">OFF</span>
                   </div>

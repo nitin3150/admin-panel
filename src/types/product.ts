@@ -9,7 +9,9 @@ export interface ImageObject {
     id: string;
     _id?: string;
     name: string;
-    price: number;
+    actual_price: number;
+    selling_price:number;
+    discount: number;
     stock: number;
     category: string;
     brand: string;
