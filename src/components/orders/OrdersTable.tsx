@@ -8,8 +8,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, User, Package, ExternalLink, CheckCircle, Loader2, Truck } from "lucide-react";
+import { Eye, User, Package, ExternalLink, CheckCircle, Loader2, Truck, Printer, Layers } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { OrderTypeBadge } from "@/components/ui/orderTypeBadge";
 
 interface OrdersTableProps {
   orders: any[];
@@ -31,6 +32,13 @@ export const OrdersTable = ({
   onAssignPartner,
 }: OrdersTableProps) => {
   
+  const OrderIcon = ({ type }: { type: string }) => {
+    if (type === "product") return <Package className="h-4 w-4" />;
+    if (type === "printout") return <Printer className="h-4 w-4" />;
+    if (type === "porter") return <Truck className="h-4 w-4" />;
+    return <Layers className="h-4 w-4" />;
+  };
+
   const getStatusActions = (order: any) => {
     if (!order?.status) return null;
     
@@ -118,6 +126,7 @@ export const OrdersTable = ({
           <TableHead>Order ID</TableHead>
           <TableHead>Customer</TableHead>
           <TableHead>Total</TableHead>
+          <TableHead>Order Type</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Delivery Partner</TableHead>
           <TableHead>Date</TableHead>
@@ -140,6 +149,10 @@ export const OrdersTable = ({
             </TableCell>
             <TableCell>{order.user_name || 'Unknown'}</TableCell>
             <TableCell>₹{order.total || '0.00'}</TableCell>
+            <TableCell className="flex items-center gap-2">
+              <OrderIcon type={order.order_type} />
+              <OrderTypeBadge type={order.order_type} />
+            </TableCell>
             <TableCell><StatusBadge status={order.status || 'pending'} /></TableCell>
             <TableCell>
               {order.delivery_partner_name ? (

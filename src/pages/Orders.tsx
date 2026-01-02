@@ -273,7 +273,7 @@ export default function Orders() {
       <OrderDrawer
         open={showOrderDrawer}
         onOpenChange={setShowOrderDrawer}
-        order={selectedOrder}
+        orderId={selectedOrder?.id ?? null}
       />
 
       <AssignPartnerModal
