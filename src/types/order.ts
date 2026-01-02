@@ -1,55 +1,78 @@
-export type OrderStatus = 
-  | 'preparing' 
-  | 'accepted' 
-  | 'assigned' 
-  | 'out_for_delivery' 
-  | 'delivered' 
-  | 'cancelled'
-  | 'returned';
+export type OrderType = "product" | "printout" | "porter" | "mixed";
 
-export interface OrderItem {
-  id: string;
-  product_name: string;
-  price: number;
-  quantity: number;
-  product_image?: string[];
+export type OrderStatus =
+  | "preparing"
+  | "assigning"
+  | "assigned"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled";
+
+export interface StatusHistory {
+  status: OrderStatus;
+  changed_at: string;
+  changed_by?: string;
+  message?: string;
 }
 
 export interface Address {
-  address: string;
+  street: string;
   city: string;
   state: string;
   pincode: string;
+  phone?: string;
 }
+
+export interface ProductItem {
+  type: "product";
+  product: string;
+  product_name?: string;
+  product_image?: string[];
+  quantity: number;
+  price: number;
+}
+
+export interface PrintoutItem {
+  type: "printout";
+  service_data: {
+    file_urls: string[];
+    copies: number;
+    color: boolean;
+    paper_size: string;
+    notes?: string;
+    price: number;
+  };
+}
+
+export interface PorterItem {
+  type: "porter";
+  service_data: {
+    pickup_address: Address;
+    delivery_address: Address;
+    estimated_distance: number;
+    estimated_cost: number;
+    notes?: string;
+  };
+}
+
+export type OrderItem = ProductItem | PrintoutItem | PorterItem;
 
 export interface Order {
   id: string;
-  _id?: string;
-  user_name: string;
-  user_email: string;
-  user_phone?: string;
+  order_type: OrderType;
   status: OrderStatus;
-  order_status?: OrderStatus; // Fallback
-  total: number;
-  total_amount?: number; // Fallback
-  payment_method: string;
-  payment_status?: string;
+  status_history?: StatusHistory[];
+  customer?: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+  };
   delivery_partner_name?: string;
-  delivery_partner_id?: string;
-  created_at: string;
-  updated_at?: string;
-  items: OrderItem[];
   delivery_address?: Address;
-}
-
-export interface OrderFilters {
-  status: string;
-  date_range: string;
-  from_date: string;
-  to_date: string;
-  delivery_partner: string;
-  min_amount: string;
-  max_amount: string;
+  items?: OrderItem[];
+  total: number;
+  created_at: string;
 }
 
 export interface PaginationInfo {
@@ -58,4 +81,13 @@ export interface PaginationInfo {
   total_items: number;
   has_next: boolean;
   has_prev: boolean;
+}
+
+export interface OrderFilters {
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  from_date?: string;
+  to_date?: string;
 }
