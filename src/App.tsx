@@ -24,6 +24,7 @@ import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import NotificationsPage from "@/pages/notifications";
 import PorterRequests from "./pages/ProductRequests";
+import PincodesPage from "./pages/Pincodes";
 
 const queryClient = new QueryClient();
 
@@ -115,6 +116,7 @@ const AppContent = () => {
         <Route path="help" element={<Help />} />
         <Route path="requests" element={<Requests />} />
         <Route path= "notifications" element= {<NotificationsPage />}/>
+        <Route path= "pincodes" element= {<PincodesPage />}/>
       </Route>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<NotFound />} />
