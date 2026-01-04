@@ -47,12 +47,12 @@ export const OrderDrawer = ({
 
     setLoading(true);
     setOrder(null);
-
+    
     const handleOrderDetails = (data: any) => {
       setOrder(data.order);
       setLoading(false);
     };
-
+    // console.log(order)
     wsService.onMessage("order_details", handleOrderDetails);
 
     wsService.send({
@@ -93,6 +93,7 @@ export const OrderDrawer = ({
             {/* Status */}
             {order.status_history?.length > 0 && (
               <Card>
+                {order.payment_method}
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Status History</CardTitle>
                 </CardHeader>

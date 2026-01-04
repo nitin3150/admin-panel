@@ -77,6 +77,11 @@ const navigation = [
     icon: Users,
   },
   {
+    name: "Pincodes",
+    href: "/dashboard/pincodes",
+    icon: Users,
+  },
+  {
     name: "Pricing",
     href: "/dashboard/pricing",
     icon: DollarSign,
