@@ -224,7 +224,13 @@ export const OrderDrawer = ({
                 <CardTitle className="text-base">Delivery Address</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                {order.delivery_address.street}, {order.delivery_address.city},{" "}
+                {order.delivery_address.name && (
+                  <>
+                    <span className="font-medium text-foreground">{order.delivery_address.name}</span>
+                    <br />
+                  </>
+                )}
+                {order.delivery_address.address || order.delivery_address.street}, {order.delivery_address.city},{" "}
                 {order.delivery_address.state} - {order.delivery_address.pincode}
                 <br />
                 Phone: {order.delivery_address.phone}
