@@ -16,11 +16,14 @@ export interface StatusHistory {
 }
 
 export interface Address {
-  street: string;
+  name?: string;
+  address?: string;
+  street?: string;
   city: string;
   state: string;
   pincode: string;
   phone?: string;
+  mobile_number?: string;
 }
 
 export interface ProductItem {
