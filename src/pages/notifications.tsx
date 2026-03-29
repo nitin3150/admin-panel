@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useDashboardStore } from "@/store/dashboardStore";
 import { wsService } from "@/services/websocket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,13 +82,11 @@ export default function NotificationsPage() {
 
     // Register WebSocket message handlers
     wsService.onMessage("notifications_data", (data) => {
-      console.log("📨 Received notifications:", data);
       setNotifications(data.notifications || []);
       setLoading(false);
     });
 
     wsService.onMessage("notification_stats", (data) => {
-      console.log("📊 Received stats:", data);
       setStats(data.stats);
     });
 
@@ -125,7 +122,7 @@ export default function NotificationsPage() {
     });
 
     wsService.onMessage("error", (data) => {
-      console.error("❌ Error:", data);
+      // silently ignore
     });
   }, []);
 
@@ -143,7 +140,6 @@ export default function NotificationsPage() {
       filters.all_users = false;
     }
 
-    console.log("📤 Loading notifications with filters:", filters);
     wsService.send({
       type: "get_notifications",
       filters,
@@ -151,7 +147,6 @@ export default function NotificationsPage() {
   };
 
   const loadStats = () => {
-    console.log("📤 Loading stats");
     wsService.send({
       type: "get_notification_stats",
     });
@@ -174,7 +169,6 @@ export default function NotificationsPage() {
       return;
     }
 
-    console.log("📤 Sending notification to user:", selectedUserId);
     wsService.send({
       type: "send_notification_to_user",
       data: {
@@ -196,7 +190,6 @@ export default function NotificationsPage() {
       return;
     }
 
-    console.log("📤 Broadcasting notification");
     wsService.send({
       type: "send_notification_to_all",
       data: {
@@ -216,7 +209,6 @@ export default function NotificationsPage() {
       : `Delete notification sent to ${notification.user_name}?`;
     
     if (confirm(confirmMessage)) {
-      console.log("📤 Deleting notification:", notification.id);
       wsService.send({
         type: "delete_notification",
         data: {

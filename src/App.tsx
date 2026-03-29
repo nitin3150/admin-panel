@@ -1,9 +1,9 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { wsService } from "@/services/websocket";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
@@ -22,75 +22,45 @@ import Requests from './pages/Requests';
 import DiscountCoupons from "./pages/Discount";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
-import NotificationsPage from "@/pages/notifications";
+import NotificationsPage from "@/pages/Notifications";
 import PorterRequests from "./pages/ProductRequests";
 import PincodesPage from "./pages/Pincodes";
-
-const queryClient = new QueryClient();
+import Monitoring from "./pages/Monitoring";
 
 const AppContent = () => {
   const { isAuthenticated, user } = useAuthStore();
 
   useSessionTimeout(30);
 
-  // useEffect(() => {
-  //   // Connect WebSocket once on app start
-  //   wsService.connect().catch(err => {
-  //     console.error("WebSocket connection failed", err);
-  //   });
-  
-  //   // If user is authenticated (from persisted storage), send token immediately
-  //   if (isAuthenticated && user?.token) {
-  //     console.log('User already authenticated, sending token to WebSocket');
-  //     wsService.send({ 
-  //       type: 'authenticate', 
-  //       payload: { token: user.token }
-  //     });
-  //   }
-  
-  //   return () => {
-  //     if (wsService.isConnected()) {
-  //       wsService.disconnect();
-  //     }
-  //   };
-  // }, []); // Empty dependency array - only run once
+  const connectingRef = useRef(false);
 
-  // // Send token when user becomes authenticated (e.g., after login)
-  // useEffect(() => {
-  //   console.log("in the app.tsx")
-  //   if (isAuthenticated && user?.token && wsService.isConnected()) {
-  //     console.log('User authenticated, sending token to WebSocket');
-  //     wsService.send({ 
-  //       type: 'authenticate', 
-  //       payload: { token: user.token }
-  //     });
-  //   }
-  // }, [isAuthenticated, user?.token]);
-
+  // Connect WebSocket once on mount
   useEffect(() => {
-    const initializeWebSocket = async () => {
-      try {
-        await wsService.connect();
-        
-        if (isAuthenticated && user?.token) {
-          console.log('User authenticated, sending token to WebSocket');
-          wsService.send({ 
-            type: 'authenticate', 
-            payload: { token: user.token }
-          });
+    if (connectingRef.current) return;
+    connectingRef.current = true;
+
+    wsService.connect()
+      .then(() => {
+        const token = sessionStorage.getItem('admin_token');
+        if (token) {
+          wsService.send({ type: 'authenticate', payload: { token } });
         }
-      } catch (err) {
-        console.error("WebSocket connection failed", err);
-      }
-    };
-  
-    initializeWebSocket();
-  
+      })
+      .catch(() => {})
+      .finally(() => { connectingRef.current = false; });
+
     return () => {
       if (wsService.isConnected()) {
         wsService.disconnect();
       }
     };
+  }, []);
+
+  // Re-authenticate when user logs in (token changes)
+  useEffect(() => {
+    if (isAuthenticated && user?.token && wsService.isConnected()) {
+      wsService.send({ type: 'authenticate', payload: { token: user.token } });
+    }
   }, [isAuthenticated, user?.token]);
 
   return (
@@ -117,6 +87,7 @@ const AppContent = () => {
         <Route path="requests" element={<Requests />} />
         <Route path= "notifications" element= {<NotificationsPage />}/>
         <Route path= "pincodes" element= {<PincodesPage />}/>
+        <Route path="monitoring" element={<Monitoring />} />
       </Route>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<NotFound />} />
@@ -125,17 +96,15 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <ErrorBoundary>
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
-      </ErrorBoundary>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <TooltipProvider>
+    <Toaster />
+    <Sonner />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </ErrorBoundary>
+  </TooltipProvider>
 );
 
 export default App;

@@ -7,6 +7,7 @@ import { UsersTable } from "@/components/users/UsersTable";
 import { wsService } from "@/services/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@/types/user";
+import { WsUsersData, WsErrorData } from "@/types/websocket";
 import { Search, Shield, User as UserIcon, Truck, Store } from "lucide-react";
 
 const roleIcons = { admin: Shield, customer: UserIcon, delivery_partner: Truck, vendor: Store };
@@ -28,7 +29,7 @@ export default function Users() {
   ];
 
   useEffect(() => {
-    const handleUsersData = (data: any) => {
+    const handleUsersData = (data: WsUsersData) => {
       setUsers(data.users || []);
       setIsLoading(false);
     };
@@ -39,7 +40,7 @@ export default function Users() {
       toast({ title: "User Updated" });
     };
 
-    const handleError = (data: any) => {
+    const handleError = (data: WsErrorData) => {
       setIsLoading(false);
       setLoadingUserIds(new Set());
       if (!data.message?.includes('Unknown message type') && !data.message?.includes('not implemented')) {
@@ -47,18 +48,17 @@ export default function Users() {
       }
     };
 
-    wsService.onMessage("users_data", handleUsersData);
-    wsService.onMessage("user_updated", handleUserUpdated);
-    wsService.onMessage("user_status_updated", handleUserUpdated);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("users_data", handleUsersData),
+      wsService.onMessage("user_updated", handleUserUpdated),
+      wsService.onMessage("user_status_updated", handleUserUpdated),
+      wsService.onMessage("error", handleError),
+    ];
 
     wsService.send({ type: 'get_users', filters: {} });
 
     return () => {
-      wsService.onMessage("users_data", () => {});
-      wsService.onMessage("user_updated", () => {});
-      wsService.onMessage("user_status_updated", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [toast]);
 

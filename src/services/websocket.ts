@@ -1,3 +1,5 @@
+import type { WsOutgoingMessage } from '@/types/websocket';
+
 class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -6,10 +8,10 @@ class WebSocketService {
   private url: string;
   private isAuthenticated = false;
   private isWsAuthenticated = false;
-  private messageHandlers: Map<string, Set<(data: any) => void>> = new Map();
+  private messageHandlers: Map<string, Set<(data: Record<string, unknown>) => void>> = new Map();
   private connectionHandlers: Array<(connected: boolean) => void> = [];
-  private messageQueue: any[] = [];
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private messageQueue: WsOutgoingMessage[] = [];
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(url: string) {
     this.url = url;
@@ -22,11 +24,9 @@ class WebSocketService {
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        console.log("Connecting to WebSocket...");
         this.ws = new WebSocket(this.url);
 
         this.ws.onopen = () => {
-          console.log('WebSocket connected');
           this.reconnectAttempts = 0;
           this.notifyConnectionHandlers(true);
           this.flushQueue();
@@ -38,12 +38,11 @@ class WebSocketService {
             const message = JSON.parse(event.data);
             this.handleMessage(message);
           } catch (error) {
-            console.error('Failed to parse WebSocket message:', error);
+            // silently ignore
           }
         };
 
         this.ws.onclose = (event) => {
-          console.log('WebSocket disconnected', event.code);
           this.isWsAuthenticated = false;
           this.notifyConnectionHandlers(false);
 
@@ -53,7 +52,6 @@ class WebSocketService {
         };
 
         this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
           reject(error);
         };
       } catch (error) {
@@ -68,18 +66,17 @@ class WebSocketService {
     }
 
     this.reconnectAttempts++;
-    console.log(`Reconnecting attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
-    
+
     this.reconnectTimer = setTimeout(() => {
       this.connect()
         .then(() => {
-          const token = localStorage.getItem('admin_token');
+          const token = sessionStorage.getItem('admin_token');
           if (token) {
             this.send({ type: 'authenticate', payload: { token } });
           }
         })
-        .catch((error) => {
-          console.error('Reconnection failed:', error);
+        .catch(() => {
+          // silently ignore
         });
     }, this.reconnectDelay);
   }
@@ -91,40 +88,39 @@ class WebSocketService {
     }
   }
 
-  send(message: any) {
+  send(message: WsOutgoingMessage) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
-      console.warn('WebSocket not ready, queuing message:', message.type);
       this.messageQueue.push(message);
     }
   }
 
-  onMessage(type: string, handler: (data: any) => void): () => void {
+  onMessage<T = Record<string, unknown>>(type: string, handler: (data: T) => void): () => void {
     if (!this.messageHandlers.has(type)) {
       this.messageHandlers.set(type, new Set());
     }
     
     const handlers = this.messageHandlers.get(type)!;
-    handlers.add(handler);
+    handlers.add(handler as (data: Record<string, unknown>) => void);
     
     // Return cleanup function
     return () => {
-      handlers.delete(handler);
+      handlers.delete(handler as (data: Record<string, unknown>) => void);
       if (handlers.size === 0) {
         this.messageHandlers.delete(type);
       }
     };
   }
 
-  private handleMessage(message: any) {
+  private handleMessage(message: Record<string, unknown>) {
     const { type, ...data } = message;
     
     if (type === 'auth_success') {
       this.isAuthenticated = true;
       this.isWsAuthenticated = true;
       if (data.user?.token) {
-        localStorage.setItem('admin_token', data.user.token);
+        sessionStorage.setItem('admin_token', data.user.token);
       }
     }
 
@@ -139,7 +135,7 @@ class WebSocketService {
         try {
           handler(data);
         } catch (error) {
-          console.error(`Error in message handler for ${type}:`, error);
+          // silently ignore
         }
       });
     }
@@ -150,7 +146,7 @@ class WebSocketService {
         try {
           handler(message);
         } catch (error) {
-          console.error('Error in wildcard handler:', error);
+          // silently ignore
         }
       });
     }
@@ -194,8 +190,6 @@ class WebSocketService {
   }
 
   disconnect() {
-    console.log('Disconnecting WebSocket');
-    
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -211,7 +205,7 @@ class WebSocketService {
 
 const wsUrl = import.meta.env.DEV
   ? "ws://localhost:8001/admin/ws"
-  : "ws://195.35.6.222/admin/ws";
+  : "wss://195.35.6.222/admin/ws";
 
 export const wsService = new WebSocketService(wsUrl);
 export default wsService;

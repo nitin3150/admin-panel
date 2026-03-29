@@ -11,8 +11,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { useDashboardStore } from "@/store/dashboardStore";
+import { useStatsStore } from "@/store/statsStore";
+import { useProductStore } from "@/store/productStore";
+import { useOrderStore } from "@/store/orderStore";
+import { useUserStore } from "@/store/userStore";
 import { wsService } from "@/services/websocket";
+import { WsProductsData, WsUsersData, WsErrorData } from "@/types/websocket";
 import { useToast } from "@/hooks/use-toast";
 import {
   DollarSign,
@@ -52,20 +56,10 @@ interface ChartFilters {
 }
 
 export default function Dashboard() {
-  const {
-    stats,
-    revenueData,
-    recentOrders,
-    setStats,
-    setRevenueData,
-    setRecentOrders,
-    products,
-    orders,
-    users,
-    setProducts,
-    setOrders,
-    setUsers
-  } = useDashboardStore();
+  const { stats, revenueData, recentOrders, setStats, setRevenueData, setRecentOrders } = useStatsStore();
+  const { products, setProducts } = useProductStore();
+  const { orders, setOrders } = useOrderStore();
+  const { users, setUsers } = useUserStore();
   const { toast } = useToast();
 
   const [chartFilters, setChartFilters] = useState<ChartFilters>({
@@ -195,9 +189,6 @@ export default function Dashboard() {
     const filteredOrders = getFilteredOrders();
     const { from, to } = getDateRange(chartFilters.dateRange);
 
-    console.log('📊 Generating revenue data from', from, 'to', to);
-    console.log('📊 Filtered orders count:', filteredOrders.length);
-
     const days = [];
     const currentDate = new Date(from);
 
@@ -227,15 +218,12 @@ export default function Dashboard() {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    console.log('📊 Revenue data generated:', days.length, 'days');
     setRevenueData(days);
   };
 
   const generateOrderCountData = () => {
     const filteredOrders = getFilteredOrders();
     const { from, to } = getDateRange(chartFilters.dateRange);
-
-    console.log('📊 Generating order count data');
 
     const days = [];
     const currentDate = new Date(from);
@@ -261,7 +249,6 @@ export default function Dashboard() {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    console.log('📊 Order count data generated:', days.length, 'days');
     setOrderCountData(days);
   };
 
@@ -345,7 +332,6 @@ export default function Dashboard() {
         description: `Downloaded ${filteredOrders.length} orders`,
       });
     } catch (error) {
-      console.error('Error downloading CSV:', error);
       toast({
         title: "Download Failed",
         description: "Failed to download orders CSV",
@@ -409,7 +395,6 @@ export default function Dashboard() {
 
   // ✅ FIXED: Request initial data
   useEffect(() => {
-    console.log('=== DASHBOARD MOUNTING ===');
     setIsLoading(true);
 
     // Request all data
@@ -420,25 +405,13 @@ export default function Dashboard() {
     });
     wsService.send({ type: 'get_users', filters: {} });
 
-    const handleProductsData = (data: any) => {
-      console.log('✅ Products received:', data.products?.length || 0);
+    const handleProductsData = (data: WsProductsData) => {
       setProducts(data.products || []);
     };
 
     // ✅ FIXED: Handle orders_data for dashboard
-    const handleOrdersData = (data: any) => {
-      console.log('=== ORDERS DATA RECEIVED ===');
-      console.log('Data structure:', {
-        hasOrders: !!data.orders,
-        ordersCount: data.orders?.length || 0,
-        hasPagination: !!data.pagination,
-        hasAnalytics: !!data.analytics
-      });
-
+    const handleOrdersData = (data: { orders: Array<Record<string, any>>; pagination?: Record<string, unknown> }) => {
       if (data.orders && Array.isArray(data.orders)) {
-        console.log('✅ Setting orders:', data.orders.length);
-        console.log('First order sample:', data.orders[0]);
-
         setOrders(data.orders);
         setRecentOrders(data.orders.slice(0, 10));
 
@@ -463,13 +436,11 @@ export default function Dashboard() {
       }
     };
 
-    const handleUsersData = (data: any) => {
-      console.log('✅ Users received:', data.users?.length || 0);
+    const handleUsersData = (data: WsUsersData) => {
       setUsers(data.users || []);
     };
 
-    const handleError = (data: any) => {
-      console.error('❌ Dashboard error:', data);
+    const handleError = (data: WsErrorData) => {
       setIsLoading(false);
 
       if (!data.message?.includes('Unknown message type')) {
@@ -497,7 +468,6 @@ export default function Dashboard() {
   // ✅ Generate charts when orders arrive
   useEffect(() => {
     if (orders.length > 0) {
-      console.log('📊 Orders updated, generating charts with', orders.length, 'orders');
       generateFilteredRevenueData();
       generateOrderCountData();
     }

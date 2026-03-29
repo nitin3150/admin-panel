@@ -15,11 +15,12 @@ import {
   Store,
   Bell,
   Bike,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useAuthStore } from "@/store/authStore";
-import { useDashboardStore } from "@/store/dashboardStore";
+import { useConnectionStore } from "@/store/connectionStore";
 import { ConnectionIndicator } from "@/components/ui/connection-indicator";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -91,12 +92,17 @@ const navigation = [
     href: "/dashboard/users",
     icon: Users,
   },
+  {
+    name: "Monitoring",
+    href: "/dashboard/monitoring",
+    icon: Activity,
+  },
 ];
 
 export function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuthStore();
-  const { isConnected } = useDashboardStore();
+  const { isConnected } = useConnectionStore();
   const { toast } = useToast();
   const [collapsed, setCollapsed] = useState(false);
   
@@ -106,13 +112,7 @@ export function Sidebar() {
 
   // ✅ Fetch shop status when WebSocket connects
   useEffect(() => {
-    console.log('🔌 WebSocket connection state:', {
-      isConnected,
-      wsServiceConnected: wsService.isConnected(),
-    });
-
     if (wsService.isConnected()) {
-      console.log('✅ WebSocket connected, fetching shop status');
       // Wait a bit for connection to stabilize
       setTimeout(() => {
         fetchShopStatus();
@@ -123,34 +123,28 @@ export function Sidebar() {
   // ✅ Fetch current shop status via WebSocket
   const fetchShopStatus = () => {
     if (!wsService.isConnected()) {
-      console.error('❌ WebSocket not connected');
       return;
     }
 
     try {
-      console.log('📤 Sending get_shop_status message');
       wsService.send({
         type: 'get_shop_status'
       });
     } catch (error) {
-      console.error('❌ Error sending shop status request:', error);
+      // silently ignore
     }
   };
 
   // ✅ Register message handlers with wsService
   useEffect(() => {
     const handleShopStatusMessages = (message: any) => {
-      console.log('📨 Received message:', message);
-      
       // Handle shop status response
       if (message.type === 'shop_status') {
-        console.log('🏪 Shop status received:', message);
         setShopOpen(message.is_open);
         setLoadingShopStatus(false);
       } 
       // Handle shop status update confirmation
       else if (message.type === 'shop_status_updated') {
-        console.log('✅ Shop status updated:', message);
         setShopOpen(message.is_open);
         setLoadingShopStatus(false);
         
@@ -161,7 +155,6 @@ export function Sidebar() {
       }
       // Handle broadcast status changes from other admins
       else if (message.type === 'shop_status_changed') {
-        console.log('📢 Shop status changed by another admin:', message);
         setShopOpen(message.is_open);
         
         toast({
@@ -171,7 +164,6 @@ export function Sidebar() {
       }
       // Handle errors
       else if (message.type === 'error' && loadingShopStatus) {
-        console.error('❌ Error from server:', message.message);
         setLoadingShopStatus(false);
         
         toast({
@@ -182,7 +174,6 @@ export function Sidebar() {
       }
     };
 
-    console.log('👂 Registering WebSocket message listener');
     wsService.onMessage('*', handleShopStatusMessages);
 
     // No cleanup needed - wsService manages handlers internally
@@ -190,14 +181,7 @@ export function Sidebar() {
 
   // ✅ Handle shop status toggle via WebSocket
   const handleShopToggle = async (checked: boolean) => {
-    console.log('🔄 Shop toggle clicked:', checked);
-    console.log('🔌 WebSocket state:', {
-      isConnected: wsService.isConnected(),
-      isAuth: wsService.isAuth(),
-    });
-
     if (!wsService.isConnected()) {
-      console.error('❌ WebSocket not connected');
       toast({
         title: "Error",
         description: "Not connected to server. Please refresh the page.",
@@ -218,7 +202,6 @@ export function Sidebar() {
         }
       };
       
-      console.log('📤 Sending shop status update:', message);
       wsService.send(message);
 
       // Optimistic update
@@ -227,13 +210,11 @@ export function Sidebar() {
       // Set timeout to reset loading if no response in 5 seconds
       setTimeout(() => {
         if (loadingShopStatus) {
-          console.log('⏱️ Timeout - no response received');
           setLoadingShopStatus(false);
         }
       }, 5000);
       
     } catch (error) {
-      console.error('❌ Error sending WebSocket message:', error);
       setLoadingShopStatus(false);
       setShopOpen(!checked); // Revert
       

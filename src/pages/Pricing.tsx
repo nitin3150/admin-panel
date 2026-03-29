@@ -6,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { useDashboardStore } from "@/store/dashboardStore";
 import { wsService } from "@/services/websocket";
+import { WsPricingConfigData, WsErrorData } from "@/types/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Calculator, Truck, CreditCard, Loader2, RefreshCw } from "lucide-react";
 
@@ -89,14 +89,12 @@ export default function Pricing() {
 
   // Load existing pricing configuration on component mount
   useEffect(() => {
-    console.log('Pricing component mounted, requesting pricing config...');
-    
     wsService.send({
       type: 'get_pricing_config'
     });
 
-    const handlePricingConfigData = (data: any) => {
-      const config = data.data || {};
+    const handlePricingConfigData = (data: WsPricingConfigData) => {
+      const config = data.data || {} as WsPricingConfigData['data'];
       // console.log('Received pricing config data:', config.data);
       if (config.delivery_fee) {
         setDeliveryConfig({
@@ -143,8 +141,7 @@ export default function Pricing() {
       setIsLoading(false);
     };
 
-    const handlePricingConfigSaved = (data: any) => {
-      console.log('Pricing config saved:', data);
+    const handlePricingConfigSaved = (_data: Record<string, unknown>) => {
       setIsSaving(false);
       toast({
         title: "Configuration Saved",
@@ -152,12 +149,11 @@ export default function Pricing() {
       });
     };
 
-    const handleError = (data: any) => {
-      console.error('Pricing WebSocket error:', data);
+    const handleError = (data: WsErrorData) => {
       setIsLoading(false);
       setIsSaving(false);
-      
-      if (!data.message?.includes('Unknown message type') && 
+
+      if (!data.message?.includes('Unknown message type') &&
           !data.message?.includes('get_pricing_config')) {
         toast({
           title: "Error",
@@ -168,19 +164,17 @@ export default function Pricing() {
     };
 
     // Register message handlers
-    wsService.onMessage("pricing_config", handlePricingConfigData); // Your backend sends "pricing_config"
-    wsService.onMessage("pricing_config_data", handlePricingConfigData); // Fallback
-    wsService.onMessage("pricing_updated", handlePricingConfigSaved); // Your backend sends "pricing_updated"
-    wsService.onMessage("pricing_config_saved", handlePricingConfigSaved); // Fallback
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("pricing_config", handlePricingConfigData), // Your backend sends "pricing_config"
+      wsService.onMessage("pricing_config_data", handlePricingConfigData), // Fallback
+      wsService.onMessage("pricing_updated", handlePricingConfigSaved), // Your backend sends "pricing_updated"
+      wsService.onMessage("pricing_config_saved", handlePricingConfigSaved), // Fallback
+      wsService.onMessage("error", handleError),
+    ];
 
     // Cleanup function
     return () => {
-      wsService.onMessage("pricing_config", () => {});
-      wsService.onMessage("pricing_config_data", () => {});
-      wsService.onMessage("pricing_updated", () => {});
-      wsService.onMessage("pricing_config_saved", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [toast]);
 
@@ -287,7 +281,6 @@ export default function Pricing() {
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('Saving pricing config:', configData);
     setIsSaving(true);
 
     wsService.send({

@@ -28,6 +28,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { wsService } from "@/services/websocket";
+import { WsErrorData } from "@/types/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Ticket, Edit, Loader2 } from "lucide-react";
 
@@ -63,14 +64,11 @@ export default function PincodesPage() {
   ];
 
   useEffect(() => {
-    console.log("Pincode component mounted, requesting data...");
-    
     // Request pincodes data
     wsService.send({ type: "get_pincodes" });
 
     // Register handlers and store cleanup functions
-    const cleanupPincodesData = wsService.onMessage("pincodes_data", (message: any) => {
-      console.log("Received pincodes data:", message);
+    const cleanupPincodesData = wsService.onMessage<{ available_pincodes?: PincodeData[] }>("pincodes_data", (message) => {
       if (message.available_pincodes) {
         const mapped = message.available_pincodes.map((p: PincodeData) => ({
           ...p
@@ -80,18 +78,17 @@ export default function PincodesPage() {
       }
     });
 
-    const cleanupPincodeCreated = wsService.onMessage("pincode_created", (message: any) => {
-      console.log("Pincode created:", message);
+    const cleanupPincodeCreated = wsService.onMessage<{ data?: PincodeData & { _id?: string } } & PincodeData & { _id?: string }>("pincode_created", (message) => {
       // Backend sends { type: "pincode_created", data: {...} }
-      const data = message.data || message;
-      const newPincode = { 
+      const data = (message as any).data || message;
+      const newPincode = {
         ...data,
         pincodeId: data.pincodeId || data._id,
         _id: data.pincodeId || data._id
       };
-      
+
       setPincodes((prevPincodes) => [...prevPincodes, newPincode]);
-      
+
       setIsSaving(false);
       toast({
         title: "Pincode Created",
@@ -99,24 +96,23 @@ export default function PincodesPage() {
       });
     });
 
-    const cleanupPincodeUpdated = wsService.onMessage("pincode_updated", (message: any) => {
-      console.log("Pincode updated:", message);
+    const cleanupPincodeUpdated = wsService.onMessage<{ data?: PincodeData } & PincodeData>("pincode_updated", (message) => {
       // Backend sends { type: "pincode_updated", data: {...} }
       // But wsService strips 'type' and passes the rest
-      const data = message.data || message;
-      const updatedPincode = { 
+      const data = (message as any).data || message;
+      const updatedPincode = {
         ...data,
         pincodeId: data.pincodeId,
       };
-      
+
       setPincodes((prevPincodes) =>
         prevPincodes.map((p) =>
-          (p.pincodeId === updatedPincode.pincodeId) 
-            ? updatedPincode 
+          (p.pincodeId === updatedPincode.pincodeId)
+            ? updatedPincode
             : p
         )
       );
-      
+
       setIsSaving(false);
       toast({
         title: "Pincode Updated",
@@ -124,8 +120,7 @@ export default function PincodesPage() {
       });
     });
 
-    const cleanupError = wsService.onMessage("error", (data: any) => {
-      console.error("WebSocket error:", data);
+    const cleanupError = wsService.onMessage<WsErrorData>("error", (data) => {
       setIsLoading(false);
       setIsSaving(false);
       toast({
@@ -137,7 +132,6 @@ export default function PincodesPage() {
 
     // Cleanup all handlers when component unmounts
     return () => {
-      console.log("Cleaning up WebSocket handlers");
       cleanupPincodesData();
       cleanupPincodeCreated();
       cleanupPincodeUpdated();
@@ -190,8 +184,6 @@ export default function PincodesPage() {
   };
 
   const handleEdit = (data: PincodeData) => {
-    console.log("Edit clicked for:", data);
-    
     // Set the form data first
     const newFormData = {
       pincode: data.pincode,

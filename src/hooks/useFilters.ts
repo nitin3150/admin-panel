@@ -11,7 +11,7 @@ export const useFilters = <T extends Record<string, any>>(
   const { initialFilters = {} as T, onFilterChange } = options;
   const [filters, setFilters] = useState<T>(initialFilters as T);
 
-  const updateFilter = useCallback((key: keyof T, value: any) => {
+  const updateFilter = useCallback((key: keyof T, value: T[keyof T]) => {
     setFilters(prev => {
       const newFilters = { ...prev, [key]: value };
       onFilterChange?.(newFilters);
@@ -38,7 +38,7 @@ export const useFilters = <T extends Record<string, any>>(
       if (value === 'all' || value === '' || value === null || value === undefined) {
         return false;
       }
-      return value !== (initialFilters as any)[key];
+      return value !== (initialFilters as Record<string, unknown>)[key];
     }).length;
   }, [filters, initialFilters]);
 
