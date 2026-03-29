@@ -25,6 +25,7 @@ import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import NotificationsPage from "@/pages/notifications";
 import PorterRequests from "./pages/ProductRequests";
 import PincodesPage from "./pages/Pincodes";
+import Monitoring from "./pages/Monitoring";
 
 const queryClient = new QueryClient();
 
@@ -117,6 +118,7 @@ const AppContent = () => {
         <Route path="requests" element={<Requests />} />
         <Route path= "notifications" element= {<NotificationsPage />}/>
         <Route path= "pincodes" element= {<PincodesPage />}/>
+        <Route path="monitoring" element={<Monitoring />} />
       </Route>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<NotFound />} />
