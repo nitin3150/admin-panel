@@ -1,10 +1,11 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { wsService } from '@/services/websocket';
 import { useToast } from '@/hooks/use-toast';
+import type { WsOutgoingMessage, WsErrorData } from '@/types/websocket';
 
 interface UseWebSocketOptions {
-  onMessage?: Record<string, (data: any) => void>;
-  onError?: (error: any) => void;
+  onMessage?: Record<string, (data: Record<string, unknown>) => void>;
+  onError?: (error: WsErrorData) => void;
   autoConnect?: boolean;
 }
 
@@ -21,13 +22,13 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
     if (!autoConnect) return;
 
     const handlers = handlersRef.current;
-    
+    const cleanups: Array<() => void> = [];
+
     Object.entries(handlers).forEach(([type, handler]) => {
-      wsService.onMessage(type, handler);
+      cleanups.push(wsService.onMessage(type, handler));
     });
 
-    const errorHandler = (data: any) => {
-      console.error('WebSocket error:', data);
+    const errorHandler = (data: WsErrorData) => {
       if (onError) {
         onError(data);
       } else if (!data.message?.includes('Unknown message type')) {
@@ -38,18 +39,15 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
         });
       }
     };
-    
-    wsService.onMessage('error', errorHandler);
+
+    cleanups.push(wsService.onMessage('error', errorHandler));
 
     return () => {
-      Object.keys(handlers).forEach(type => {
-        wsService.onMessage(type, () => {});
-      });
-      wsService.onMessage('error', () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [autoConnect, onError, toast]);
 
-  const send = useCallback((message: any) => {
+  const send = useCallback((message: WsOutgoingMessage) => {
     wsService.send(message);
   }, []);
 

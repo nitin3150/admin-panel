@@ -7,6 +7,7 @@ import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import { wsService } from "@/services/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { Product, Brand, Category } from "@/types/product";
+import { WsProductsData, WsErrorData } from "@/types/websocket";
 import { Plus, Search, Package } from "lucide-react";
 
 export default function Products() {
@@ -20,8 +21,7 @@ export default function Products() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const handleProductsData = (data: any) => {
-      console.log(data)
+    const handleProductsData = (data: WsProductsData) => {
       setProducts(data.products || []);
       setCategories(data.categories || []);
       setBrands(data.brands || []);
@@ -45,27 +45,25 @@ export default function Products() {
       toast({ title: "Product Deleted" });
     };
 
-    const handleError = (data: any) => {
+    const handleError = (data: WsErrorData) => {
       setIsLoading(false);
       if (!data.message?.includes('Unknown message type')) {
         toast({ title: "Error", description: data.message, variant: "destructive" });
       }
     };
 
-    wsService.onMessage("products_data", handleProductsData);
-    wsService.onMessage("product_created", handleProductCreated);
-    wsService.onMessage("product_updated", handleProductUpdated);
-    wsService.onMessage("product_deleted", handleProductDeleted);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("products_data", handleProductsData),
+      wsService.onMessage("product_created", handleProductCreated),
+      wsService.onMessage("product_updated", handleProductUpdated),
+      wsService.onMessage("product_deleted", handleProductDeleted),
+      wsService.onMessage("error", handleError),
+    ];
 
     wsService.send({ type: 'get_products' });
 
     return () => {
-      wsService.onMessage("products_data", () => {});
-      wsService.onMessage("product_created", () => {});
-      wsService.onMessage("product_updated", () => {});
-      wsService.onMessage("product_deleted", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [toast]);
 
@@ -90,7 +88,7 @@ export default function Products() {
     setEditingProduct(null);
   };
 
-  const handleFormSubmit = (data: any) => {
+  const handleFormSubmit = (data: Partial<Product> & { images?: File[] }) => {
     const type = editingProduct ? 'update_product' : 'create_product';
     wsService.send({ type, data });
     toast({ 

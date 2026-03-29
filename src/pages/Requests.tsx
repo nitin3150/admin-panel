@@ -22,8 +22,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDashboardStore } from "@/store/dashboardStore";
 import { wsService } from "@/services/websocket";
+import { WsErrorData } from "@/types/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Search, 
@@ -114,21 +114,17 @@ export default function UserSuggestions() {
 
   // Request initial data and set up real-time handlers
   useEffect(() => {
-    console.log('User Suggestions component mounted');
-    
     wsService.send({
       type: 'get_user_suggestions',
       filters: {}
     });
 
-    const handleSuggestionsData = (data: any) => {
-      console.log('Received suggestions data:', data);
+    const handleSuggestionsData = (data: { suggestions: UserSuggestion[] }) => {
       setSuggestions(data.suggestions || []);
       setIsLoading(false);
     };
 
-    const handleSuggestionUpdated = (data: any) => {
-      console.log('Suggestion updated:', data);
+    const handleSuggestionUpdated = (_data: Record<string, unknown>) => {
       wsService.send({ type: 'get_user_suggestions', filters: {} });
       setIsUpdating(false);
       setShowDetailsModal(false);
@@ -138,12 +134,11 @@ export default function UserSuggestions() {
       });
     };
 
-    const handleError = (data: any) => {
-      console.error('Suggestions WebSocket error:', data);
+    const handleError = (data: WsErrorData) => {
       setIsLoading(false);
       setIsUpdating(false);
-      
-      if (!data.message?.includes('Unknown message type') && 
+
+      if (!data.message?.includes('Unknown message type') &&
           !data.message?.includes('not implemented')) {
         toast({
           title: "Error",
@@ -154,14 +149,14 @@ export default function UserSuggestions() {
     };
 
     // Register message handlers
-    wsService.onMessage("suggestions_data", handleSuggestionsData);
-    wsService.onMessage("suggestion_updated", handleSuggestionUpdated);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("suggestions_data", handleSuggestionsData),
+      wsService.onMessage("suggestion_updated", handleSuggestionUpdated),
+      wsService.onMessage("error", handleError),
+    ];
 
     return () => {
-      wsService.onMessage("suggestions_data", () => {});
-      wsService.onMessage("suggestion_updated", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [toast]);
 

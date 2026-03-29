@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { wsService } from "@/services/websocket";
+import { WsErrorData } from "@/types/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Search, 
@@ -126,8 +127,6 @@ export default function PorterRequests() {
   } as const;
 
   useEffect(() => {
-    console.log('Porter Requests component mounted');
-    
     wsService.send({
       type: 'get_porter_requests',
       filters: {}
@@ -138,19 +137,16 @@ export default function PorterRequests() {
       filters: {}
     });
 
-    const handleRequestsData = (data: any) => {
-      console.log('Received porter requests data:', data);
+    const handleRequestsData = (data: { requests: PorterRequest[] }) => {
       setRequests(data.requests || []);
       setIsLoading(false);
     };
 
-    const handleStatsData = (data: any) => {
-      console.log('Received porter stats:', data);
+    const handleStatsData = (data: { stats: PorterStats }) => {
       setStats(data.stats);
     };
 
-    const handleRequestUpdated = (data: any) => {
-      console.log('Porter request updated:', data);
+    const handleRequestUpdated = (_data: Record<string, unknown>) => {
       wsService.send({ type: 'get_porter_requests', filters: {} });
       wsService.send({ type: 'get_porter_stats', filters: {} });
       setIsUpdating(false);
@@ -161,11 +157,10 @@ export default function PorterRequests() {
       });
     };
 
-    const handleError = (data: any) => {
-      console.error('Porter requests error:', data);
+    const handleError = (data: WsErrorData) => {
       setIsLoading(false);
       setIsUpdating(false);
-      
+
       if (!data.message?.includes('Unknown message type')) {
         toast({
           title: "Error",
@@ -175,16 +170,15 @@ export default function PorterRequests() {
       }
     };
 
-    wsService.onMessage("porter_requests_data", handleRequestsData);
-    wsService.onMessage("porter_stats_data", handleStatsData);
-    wsService.onMessage("porter_request_updated", handleRequestUpdated);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("porter_requests_data", handleRequestsData),
+      wsService.onMessage("porter_stats_data", handleStatsData),
+      wsService.onMessage("porter_request_updated", handleRequestUpdated),
+      wsService.onMessage("error", handleError),
+    ];
 
     return () => {
-      wsService.onMessage("porter_requests_data", () => {});
-      wsService.onMessage("porter_stats_data", () => {});
-      wsService.onMessage("porter_request_updated", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [toast]);
 

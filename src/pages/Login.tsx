@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/store/authStore";
 import { wsService } from "@/services/websocket";
+import { WsAuthSuccessData, WsErrorData } from "@/types/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { rateLimiter } from '@/utils/rateLimiter';
@@ -20,9 +21,7 @@ export default function Login() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    console.log("on the login screen")
     if (isAuthenticated) {
-      console.log('User already authenticated, redirecting to dashboard');
       navigate("/dashboard", { replace: true });
     }
   }, [isAuthenticated, navigate]);
@@ -31,10 +30,9 @@ export default function Login() {
   useEffect(() => {
     let isHandlerActive = true;
 
-    const handleAuthSuccess = (data: any) => {
+    const handleAuthSuccess = (data: WsAuthSuccessData) => {
       if (!isHandlerActive) return;
       
-      console.log('Login successful:', data);
       setLoading(false);
       
       if (data.user) {
@@ -47,10 +45,9 @@ export default function Login() {
       }
     };
 
-    const handleAuthError = (data: any) => {
+    const handleAuthError = (data: WsErrorData) => {
       if (!isHandlerActive) return;
       
-      console.error('Login failed:', data);
       setLoading(false);
       const errorMessage = data.message || "Invalid credentials";
       setError(errorMessage);
@@ -62,15 +59,15 @@ export default function Login() {
     };
 
     // Register handlers
-    wsService.onMessage('auth_success', handleAuthSuccess);
-    wsService.onMessage('error', handleAuthError);
+    const cleanups = [
+      wsService.onMessage('auth_success', handleAuthSuccess),
+      wsService.onMessage('error', handleAuthError),
+    ];
 
     // Cleanup function
     return () => {
       isHandlerActive = false;
-      // Clear handlers by setting empty functions
-      wsService.onMessage('auth_success', () => {});
-      wsService.onMessage('error', () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [setLoading, setUser, setError, toast, navigate]);
 
@@ -95,23 +92,19 @@ export default function Login() {
       return;
     }
 
-    console.log('Starting login process...');
     setLoading(true);
     setError(null);
 
     try {
       // Ensure WebSocket is connected before attempting authentication
       if (!wsService.isConnected()) {
-        console.log('Connecting WebSocket for login...');
         await wsService.connect();
       }
 
       // Send authentication request
-      console.log('Sending authentication request...');
       wsService.authenticate(email, password);
       
     } catch (error) {
-      console.error('Error during login setup:', error);
       setLoading(false);
       setError('Connection failed');
       toast({

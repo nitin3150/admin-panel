@@ -25,8 +25,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { useDashboardStore } from "@/store/dashboardStore";
+import { useUserStore } from "@/store/userStore";
 import { wsService } from "@/services/websocket";
+import { WsErrorData } from "@/types/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Plus, 
@@ -48,7 +49,6 @@ import {
   Loader2
 } from "lucide-react";
 import { format } from "date-fns";
-import { dataTagErrorSymbol } from "@tanstack/react-query";
 
 // Define interfaces
 interface DiscountCoupon {
@@ -101,7 +101,7 @@ interface CouponFormData {
 }
 
 export default function DiscountCoupons() {
-  const { users } = useDashboardStore();
+  const { users } = useUserStore();
   const { toast } = useToast();
   const [coupons, setCoupons] = useState<DiscountCoupon[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -152,8 +152,6 @@ export default function DiscountCoupons() {
 
   // Request initial data and set up real-time handlers
   useEffect(() => {
-    console.log('Discount Coupons component mounted, requesting data...');
-    
     wsService.send({
       type: 'get_discount_coupons'
     });
@@ -164,14 +162,12 @@ export default function DiscountCoupons() {
       filters: {}
     });
     // console.log(data)
-    const handleCouponsData = (data: any) => {
-      console.log('Received coupons data:', data);
+    const handleCouponsData = (data: { data: DiscountCoupon[] }) => {
       setCoupons(data.data || []);
       setIsLoading(false);
     };
 
-    const handleCouponCreated = (data: any) => {
-      console.log('Coupon created:', data);
+    const handleCouponCreated = (_data: Record<string, unknown>) => {
       wsService.send({ type: 'get_discount_coupons' });
       setIsSaving(false);
       toast({
@@ -180,8 +176,7 @@ export default function DiscountCoupons() {
       });
     };
 
-    const handleCouponUpdated = (data: any) => {
-      console.log('Coupon updated:', data);
+    const handleCouponUpdated = (_data: Record<string, unknown>) => {
       wsService.send({ type: 'get_discount_coupons' });
       setIsSaving(false);
       toast({
@@ -190,8 +185,7 @@ export default function DiscountCoupons() {
       });
     };
 
-    const handleCouponDeleted = (data: any) => {
-      console.log('Coupon deleted:', data);
+    const handleCouponDeleted = (_data: Record<string, unknown>) => {
       wsService.send({ type: 'get_discount_coupons' });
       setIsSaving(false);
       toast({
@@ -200,8 +194,7 @@ export default function DiscountCoupons() {
       });
     };
 
-    const handleError = (data: any) => {
-      console.error('WebSocket error:', data);
+    const handleError = (data: WsErrorData) => {
       setIsLoading(false);
       setIsSaving(false);
       toast({
@@ -212,20 +205,17 @@ export default function DiscountCoupons() {
     };
 
     // Register message handlers
-    wsService.onMessage("coupons_data", handleCouponsData);
-    wsService.onMessage("discount_coupons_data", handleCouponsData);
-    wsService.onMessage("coupon_created", handleCouponCreated);
-    wsService.onMessage("coupon_updated", handleCouponUpdated);
-    wsService.onMessage("coupon_deleted", handleCouponDeleted);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("coupons_data", handleCouponsData),
+      wsService.onMessage("discount_coupons_data", handleCouponsData),
+      wsService.onMessage("coupon_created", handleCouponCreated),
+      wsService.onMessage("coupon_updated", handleCouponUpdated),
+      wsService.onMessage("coupon_deleted", handleCouponDeleted),
+      wsService.onMessage("error", handleError),
+    ];
 
     return () => {
-      wsService.onMessage("coupons_data", () => {});
-      wsService.onMessage("discount_coupons_data", () => {});
-      wsService.onMessage("coupon_created", () => {});
-      wsService.onMessage("coupon_updated", () => {});
-      wsService.onMessage("coupon_deleted", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [toast]);
 
@@ -256,9 +246,6 @@ export default function DiscountCoupons() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('Submitting coupon form:', formData);
-    console.log('Selected users:', selectedUsers);
     
     try {
       const couponData = {
@@ -307,7 +294,6 @@ export default function DiscountCoupons() {
       resetForm();
       
     } catch (error) {
-      console.error('Error in handleSubmit:', error);
       setIsSaving(false);
       toast({
         title: "Error",
@@ -318,8 +304,6 @@ export default function DiscountCoupons() {
   };
 
   const handleEdit = (coupon: DiscountCoupon) => {
-    console.log('Editing coupon:', coupon);
-    
     try {
       setEditingCoupon(coupon);
       setFormData({
@@ -350,7 +334,6 @@ export default function DiscountCoupons() {
       
       setShowAddModal(true);
     } catch (error) {
-      console.error('Error in handleEdit:', error);
       toast({
         title: "Error",
         description: "Failed to load coupon data for editing",

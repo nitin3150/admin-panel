@@ -10,6 +10,7 @@ import { wsService } from "@/services/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { exportOrders } from "@/utils/csvExport";
 import { Order, PaginationInfo } from "@/types/order";
+import { WsErrorData, WsDeliveryRequestsForOrderData } from "@/types/websocket";
 import { 
   Search, 
   Download, 
@@ -69,7 +70,7 @@ export default function Orders() {
   }, [pageSize, searchQuery, statusFilter]);
 
   useEffect(() => {
-    const handleOrdersData = (data: any) => {
+    const handleOrdersData = (data: { orders: Order[]; pagination?: PaginationInfo & { total_orders?: number } }) => {
       setOrders(data.orders || []);
       if (data.pagination) {
         setPagination({
@@ -83,7 +84,7 @@ export default function Orders() {
       setIsLoading(false);
     };
 
-    const handleDeliveryRequestsData = (data: any) => {
+    const handleDeliveryRequestsData = (data: WsDeliveryRequestsForOrderData) => {
       setDeliveryRequests(data.delivery_requests || []);
     };
 
@@ -100,7 +101,7 @@ export default function Orders() {
       toast({ title: "Order Assigned" });
     };
 
-    const handleError = (data: any) => {
+    const handleError = (data: WsErrorData) => {
       setIsLoading(false);
       setIsUpdating(false);
       if (!data.message?.includes('Unknown message type')) {
@@ -108,20 +109,18 @@ export default function Orders() {
       }
     };
 
-    wsService.onMessage("orders_data", handleOrdersData);
-    wsService.onMessage("delivery_requests_data", handleDeliveryRequestsData);
-    wsService.onMessage("order_updated", handleOrderUpdated);
-    wsService.onMessage("order_assigned", handleOrderAssigned);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("orders_data", handleOrdersData),
+      wsService.onMessage("delivery_requests_data", handleDeliveryRequestsData),
+      wsService.onMessage("order_updated", handleOrderUpdated),
+      wsService.onMessage("order_assigned", handleOrderAssigned),
+      wsService.onMessage("error", handleError),
+    ];
 
     loadOrders();
 
     return () => {
-      wsService.onMessage("orders_data", () => {});
-      wsService.onMessage("delivery_requests_data", () => {});
-      wsService.onMessage("order_updated", () => {});
-      wsService.onMessage("order_assigned", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, []);
 

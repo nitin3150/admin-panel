@@ -53,7 +53,9 @@ export const OrderDrawer = ({
       setLoading(false);
     };
     // console.log(order)
-    wsService.onMessage("order_details", handleOrderDetails);
+    const cleanups = [
+      wsService.onMessage("order_details", handleOrderDetails),
+    ];
 
     wsService.send({
       type: "get_order_details",
@@ -61,7 +63,7 @@ export const OrderDrawer = ({
     });
 
     return () => {
-      wsService.onMessage("order_details", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [open, orderId]);
 

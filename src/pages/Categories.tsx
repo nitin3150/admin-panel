@@ -22,7 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDashboardStore } from "@/store/dashboardStore";
+import { useCategoryStore } from "@/store/categoryStore";
 import { wsService } from "@/services/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Edit, Trash2, Upload, FolderTree, Folder, X, Image as ImageIcon } from "lucide-react";
@@ -38,7 +38,7 @@ interface CategoryFormData {
 }
 
 export default function Categories() {
-  const { categories, setCategories } = useDashboardStore();
+  const { categories, setCategories } = useCategoryStore();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -58,20 +58,16 @@ export default function Categories() {
 
   // Request initial data and set up real-time handlers
   useEffect(() => {
-    console.log('Categories component mounted, requesting data...');
-    
     wsService.send({
       type: 'get_categories'
     });
 
     const handleCategoriesData = (data) => {
-      console.log('Received categories data:', data);
       setCategories(data.categories || []);
       setIsLoading(false);
     };
 
     const handleCategoryCreated = (data) => {
-      console.log('Category created:', data);
       wsService.send({ type: 'get_categories' });
       toast({
         title: "Category Created",
@@ -81,7 +77,6 @@ export default function Categories() {
     };
 
     const handleCategoryUpdated = (data) => {
-      console.log('Category updated:', data);
       wsService.send({ type: 'get_categories' });
       toast({
         title: "Category Updated", 
@@ -91,7 +86,6 @@ export default function Categories() {
     };
 
     const handleCategoryDeleted = (data) => {
-      console.log('Category deleted:', data);
       wsService.send({ type: 'get_categories' });
       toast({
         title: "Category Deleted",
@@ -101,7 +95,6 @@ export default function Categories() {
     };
 
     const handleUploadProgress = (data) => {
-      console.log('Upload progress:', data);
       if (data.progress === 100) {
         setIsUploading(false);
         toast({
@@ -112,7 +105,6 @@ export default function Categories() {
     };
 
     const handleError = (data) => {
-      console.error('WebSocket error:', data);
       setIsLoading(false);
       setIsUploading(false);
       toast({
@@ -123,28 +115,21 @@ export default function Categories() {
     };
 
     // Register message handlers
-    wsService.onMessage("categories_data", handleCategoriesData);
-    wsService.onMessage("category_created", handleCategoryCreated);
-    wsService.onMessage("category created", handleCategoryCreated);
-    wsService.onMessage("category_updated", handleCategoryUpdated);
-    wsService.onMessage("category Updated", handleCategoryUpdated);
-    wsService.onMessage("category updated", handleCategoryUpdated);
-    wsService.onMessage("category_deleted", handleCategoryDeleted);
-    wsService.onMessage("category deleted", handleCategoryDeleted);
-    wsService.onMessage("upload_progress", handleUploadProgress);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("categories_data", handleCategoriesData),
+      wsService.onMessage("category_created", handleCategoryCreated),
+      wsService.onMessage("category created", handleCategoryCreated),
+      wsService.onMessage("category_updated", handleCategoryUpdated),
+      wsService.onMessage("category Updated", handleCategoryUpdated),
+      wsService.onMessage("category updated", handleCategoryUpdated),
+      wsService.onMessage("category_deleted", handleCategoryDeleted),
+      wsService.onMessage("category deleted", handleCategoryDeleted),
+      wsService.onMessage("upload_progress", handleUploadProgress),
+      wsService.onMessage("error", handleError),
+    ];
 
     return () => {
-      wsService.onMessage("categories_data", () => {});
-      wsService.onMessage("category_created", () => {});
-      wsService.onMessage("category created", () => {});
-      wsService.onMessage("category_updated", () => {});
-      wsService.onMessage("category Updated", () => {});
-      wsService.onMessage("category updated", () => {});
-      wsService.onMessage("category_deleted", () => {});
-      wsService.onMessage("category deleted", () => {});
-      wsService.onMessage("upload_progress", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [setCategories, toast]);
 
@@ -158,10 +143,6 @@ export default function Categories() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Submitting category form:', formData);
-    console.log('Has new image:', hasNewImage);
-    console.log('Editing category:', editingCategory);
-    
     try {
       const categoryData = {
         name: formData.name,
@@ -174,7 +155,6 @@ export default function Categories() {
       // ✅ Only include image data if user uploaded a new one
       if (hasNewImage && formData.image) {
         categoryData.image = formData.image;
-        console.log('Including new image data in submission');
       }
 
       setIsLoading(true);
@@ -184,8 +164,6 @@ export default function Categories() {
           _id: editingCategory._id || editingCategory.id,
           ...categoryData
         };
-        console.log('Sending update_category with data:', updateData);
-        
         wsService.send({
           type: 'update_category',
           data: updateData
@@ -195,8 +173,6 @@ export default function Categories() {
           description: hasNewImage ? "Uploading image and updating category..." : "Updating category...",
         });
       } else {
-        console.log('Sending create_category with data:', categoryData);
-        
         wsService.send({
           type: 'create_category',
           data: categoryData
@@ -221,7 +197,6 @@ export default function Categories() {
       setEditingCategory(null);
       
     } catch (error) {
-      console.error('Error in handleSubmit:', error);
       setIsLoading(false);
       toast({
         title: "Error",
@@ -232,8 +207,6 @@ export default function Categories() {
   };
 
   const handleEdit = (category: any) => {
-    console.log('Editing category:', category);
-    
     try {
       setEditingCategory(category);
       setFormData({
@@ -250,7 +223,6 @@ export default function Categories() {
       setHasNewImage(false); // Important: existing image is not a new upload
       setShowAddModal(true);
     } catch (error) {
-      console.error('Error in handleEdit:', error);
       toast({
         title: "Error",
         description: "Failed to load category data for editing",
@@ -260,8 +232,6 @@ export default function Categories() {
   };
 
   const handleDelete = (categoryId: string) => {
-    console.log('Deleting category with ID:', categoryId);
-    
     if (confirm("Are you sure you want to delete this category? This will also delete the image.")) {
       setIsLoading(true);
       wsService.send({
@@ -278,8 +248,6 @@ export default function Categories() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      console.log('Image file selected:', file.name, file.size, file.type);
-      
       // Validate file type
       if (!file.type.startsWith('image/')) {
         toast({
@@ -305,8 +273,7 @@ export default function Categories() {
       
       reader.onloadend = () => {
         const result = reader.result as string;
-        console.log('Image converted to base64, length:', result.length);
-        
+
         setFormData({ ...formData, image: result });
         setImagePreview(result);
         setHasNewImage(true); // ✅ Mark that user uploaded a new image
@@ -332,7 +299,6 @@ export default function Categories() {
   };
 
   const removeImage = () => {
-    console.log('Removing image');
     setFormData({ ...formData, image: "" });
     setImagePreview(null);
     setHasNewImage(false);
@@ -351,7 +317,6 @@ export default function Categories() {
   };
 
   const resetForm = () => {
-    console.log('Resetting form');
     setEditingCategory(null);
     setFormData({
       name: "",
@@ -589,7 +554,6 @@ export default function Categories() {
                           alt={category.name}
                           className="h-12 w-12 rounded-lg object-cover border"
                           onError={(e) => {
-                            console.error('Failed to load category image:', category.image);
                             // Show fallback icon if image fails to load
                             e.currentTarget.style.display = 'none';
                             e.currentTarget.nextSibling.style.display = 'flex';

@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { wsService } from "@/services/websocket";
+import { WsErrorData } from "@/types/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Search, 
@@ -120,13 +121,6 @@ export default function HelpSupport() {
   const getPhoneNumber = (ticket: HelpTicket | null): string => {
     if (!ticket) return 'Not provided';
     
-    console.log('🔍 Getting phone for ticket:', {
-      user_phone: ticket.user_phone,
-      'user_info?.phone': ticket.user_info?.phone,
-      'user_info?.user_phone': ticket.user_info?.user_phone,
-      phone: (ticket as any).phone,
-    });
-    
     // Try all possible phone field locations
     const phone = ticket.user_phone || 
                   ticket.user_info?.phone || 
@@ -134,7 +128,6 @@ export default function HelpSupport() {
                   (ticket as any).phone ||
                   '';
     
-    console.log('📱 Final phone value:', phone);
     return phone || 'Not provided';
   };
 
@@ -181,8 +174,6 @@ export default function HelpSupport() {
 
   // Request initial data and set up real-time handlers
   useEffect(() => {
-    console.log('Help & Support component mounted');
-    
     // Request tickets and stats
     wsService.send({
       type: 'get_help_tickets',
@@ -194,45 +185,31 @@ export default function HelpSupport() {
       filters: {}
     });
 
-    const handleHelpTicketsData = (data: any) => {
-      console.log('📥 Received help tickets data:', data);
-      console.log('📥 First ticket sample:', data.tickets?.[0]);
+    const handleHelpTicketsData = (data: { tickets: HelpTicket[] }) => {
       setHelpTickets(data.tickets || []);
       setIsLoading(false);
     };
 
-    const handleTicketStatsData = (data: any) => {
-      console.log('Received ticket stats:', data);
+    const handleTicketStatsData = (data: { stats: TicketStats }) => {
       setTicketStats(data.stats);
     };
 
-    const handleTicketDetailData = (data: any) => {
-      console.log('=== 📨 RECEIVED TICKET DETAIL ===');
-      console.log('Full data object:', JSON.stringify(data, null, 2));
-      console.log('Ticket object:', data.ticket);
-      console.log('user_phone field:', data.ticket?.user_phone);
-      console.log('All ticket keys:', Object.keys(data.ticket || {}));
-      
+    const handleTicketDetailData = (data: { ticket: HelpTicket | null }) => {
       // Don't override - keep existing ticket data and merge
       if (data.ticket && selectedTicket) {
-        console.log('🔄 Merging ticket data');
         const mergedTicket = {
           ...selectedTicket,
           ...data.ticket,
           // Ensure phone is preserved
           user_phone: data.ticket.user_phone || selectedTicket.user_phone
         };
-        console.log('✅ Merged ticket:', mergedTicket);
         setSelectedTicket(mergedTicket);
       } else if (data.ticket) {
-        console.log('✅ Setting new ticket');
         setSelectedTicket(data.ticket);
       }
     };
 
-    const handleTicketUpdated = (data: any) => {
-      console.log('Ticket updated:', data);
-      
+    const handleTicketUpdated = (data: { ticket_id: string }) => {
       // Refresh tickets list
       wsService.send({ 
         type: 'get_help_tickets', 
@@ -256,12 +233,11 @@ export default function HelpSupport() {
       });
     };
 
-    const handleError = (data: any) => {
-      console.error('Help & Support WebSocket error:', data);
+    const handleError = (data: WsErrorData) => {
       setIsLoading(false);
       setIsResponding(false);
-      
-      if (!data.message?.includes('Unknown message type') && 
+
+      if (!data.message?.includes('Unknown message type') &&
           !data.message?.includes('not implemented')) {
         toast({
           title: "Error",
@@ -272,11 +248,13 @@ export default function HelpSupport() {
     };
 
     // Register message handlers
-    wsService.onMessage("help_tickets_data", handleHelpTicketsData);
-    wsService.onMessage("ticket_stats_data", handleTicketStatsData);
-    wsService.onMessage("ticket_detail_data", handleTicketDetailData);
-    wsService.onMessage("ticket_updated", handleTicketUpdated);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("help_tickets_data", handleHelpTicketsData),
+      wsService.onMessage("ticket_stats_data", handleTicketStatsData),
+      wsService.onMessage("ticket_detail_data", handleTicketDetailData),
+      wsService.onMessage("ticket_updated", handleTicketUpdated),
+      wsService.onMessage("error", handleError),
+    ];
 
     // Auto-refresh interval
     let refreshInterval: NodeJS.Timeout;
@@ -290,11 +268,7 @@ export default function HelpSupport() {
     }
 
     return () => {
-      wsService.onMessage("help_tickets_data", () => {});
-      wsService.onMessage("ticket_stats_data", () => {});
-      wsService.onMessage("ticket_detail_data", () => {});
-      wsService.onMessage("ticket_updated", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
       if (refreshInterval) clearInterval(refreshInterval);
     };
   }, [toast, statusFilter, priorityFilter, autoRefresh]);
@@ -310,12 +284,6 @@ export default function HelpSupport() {
   });
 
   const openTicketDetail = (ticket: HelpTicket) => {
-    console.log('=== 🎫 OPENING TICKET ===');
-    console.log('Full ticket object:', ticket);
-    console.log('ticket.user_phone:', ticket.user_phone);
-    console.log('ticket.user_info:', ticket.user_info);
-    console.log('All ticket keys:', Object.keys(ticket));
-    
     setSelectedTicket(ticket);
     setSelectedStatus(ticket.status);
     setAdminResponse("");

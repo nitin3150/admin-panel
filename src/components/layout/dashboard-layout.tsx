@@ -2,37 +2,43 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "./sidebar";
 import { useEffect } from "react";
 import { wsService } from "@/services/websocket";
-import { useDashboardStore } from "@/store/dashboardStore";
+import { useConnectionStore } from "@/store/connectionStore";
+import { useStatsStore } from "@/store/statsStore";
+import { useProductStore } from "@/store/productStore";
+import { useOrderStore } from "@/store/orderStore";
+import { useUserStore } from "@/store/userStore";
+import { useCategoryStore } from "@/store/categoryStore";
+import { usePricingStore } from "@/store/pricingStore";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
+import type { WsAnalyticsData, WsProductsData, WsOrdersData, WsUsersData, WsCategoriesData, WsErrorData, PricingConfig } from "@/types/websocket";
+import type { Product } from "@/types/product";
 
 export function DashboardLayout() {
   const { toast } = useToast();
-  const store = useDashboardStore();
-  const { setConnected, setWebSocket, setStats, setRevenueData, setRecentOrders, setProducts, setOrders, setUsers, setPricingConfig, setCategories } = store;
+  const { setConnected, setWebSocket } = useConnectionStore();
+  const { setStats, setRevenueData } = useStatsStore();
+  const { setProducts } = useProductStore();
+  const { setOrders, setRecentOrders } = useOrderStore();
+  const { setUsers } = useUserStore();
+  const { setCategories } = useCategoryStore();
+  const { setPricingConfig } = usePricingStore();
   const { user, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Connect to WebSocket
     wsService.connect()
       .then(() => {
-        console.log('✅ WebSocket connected successfully');
         setConnected(true);
-        
-        // Store the WebSocket instance
-        // @ts-ignore - accessing private property for state management
-        setWebSocket(wsService.ws);
-        
-        // Authenticate with token if available
-        const token = localStorage.getItem('admin_token');
+        setWebSocket(wsService.websocket);
+
+        const token = sessionStorage.getItem('admin_token');
         if (token) {
           wsService.authenticateWithToken(token);
         }
       })
-      .catch((error) => {
-        console.error('❌ WebSocket connection failed:', error);
+      .catch(() => {
         toast({
           title: "Connection Failed",
           description: "Could not connect to server",
@@ -40,18 +46,15 @@ export function DashboardLayout() {
         });
       });
 
-    // Connection status handler
     wsService.onConnection((connected) => {
       setConnected(connected);
-      // @ts-ignore
-      setWebSocket(connected ? wsService.ws : null);
-      
+      setWebSocket(connected ? wsService.websocket : null);
+
       if (connected && wsService.isAuth()) {
         toast({
           title: "Connected",
           description: "Successfully connected to server",
         });
-        // Subscribe to channels after connection
         wsService.subscribe('dashboard');
         wsService.subscribe('products');
         wsService.subscribe('orders');
@@ -65,75 +68,75 @@ export function DashboardLayout() {
       }
     });
 
-    // Message handlers
-    wsService.onMessage('analytics_data', (data) => {
-      setStats(data.stats);
-      setRevenueData(data.revenueData || []);
-    });
+    const cleanups = [
+      wsService.onMessage<WsAnalyticsData>('analytics_data', (data) => {
+        setStats(data.stats);
+        setRevenueData(data.revenueData || []);
+      }),
 
-    wsService.onMessage('products_initial', (data) => {
-      setProducts(data.products || []);
-    });
+      wsService.onMessage<WsProductsData>('products_initial', (data) => {
+        setProducts((data.products || []) as Product[]);
+      }),
 
-    wsService.onMessage('product_created', (data) => {
-      setProducts(data.products || []);
-    });
+      wsService.onMessage<WsProductsData>('product_created', (data) => {
+        setProducts((data.products || []) as Product[]);
+      }),
 
-    wsService.onMessage('product_updated', (data) => {
-      setProducts(data.products || []);
-    });
+      wsService.onMessage<WsProductsData>('product_updated', (data) => {
+        setProducts((data.products || []) as Product[]);
+      }),
 
-    wsService.onMessage('product_deleted', (data) => {
-      setProducts(data.products || []);
-    });
+      wsService.onMessage<WsProductsData>('product_deleted', (data) => {
+        setProducts((data.products || []) as Product[]);
+      }),
 
-    wsService.onMessage('orders_data', (data) => {
-      setOrders(data.orders || []);
-      setRecentOrders(data.orders?.slice(0, 5) || []);
-    });
+      wsService.onMessage<WsOrdersData>('orders_data', (data) => {
+        setOrders(data.orders || []);
+        setRecentOrders((data.orders || []).slice(0, 5));
+      }),
 
-    wsService.onMessage('order_status_changed', (data) => {
-      setOrders(data.orders || []);
-      toast({
-        title: "Order Updated",
-        description: `Order ${data.orderId} status changed to ${data.status}`,
-      });
-    });
+      wsService.onMessage<WsOrdersData & { orderId?: string; status?: string }>('order_status_changed', (data) => {
+        setOrders(data.orders || []);
+        toast({
+          title: "Order Updated",
+          description: `Order ${data.orderId} status changed to ${data.status}`,
+        });
+      }),
 
-    wsService.onMessage('users_data', (data) => {
-      setUsers(data.users || []);
-    });
+      wsService.onMessage<WsUsersData>('users_data', (data) => {
+        setUsers(data.users || []);
+      }),
 
-    wsService.onMessage('categories_data', (data) => {
-      console.log(data.categories);
-      setCategories(data.categories || []);
-    });
+      wsService.onMessage<WsCategoriesData>('categories_data', (data) => {
+        setCategories(data.categories || []);
+      }),
 
-    wsService.onMessage('pricing_config', (data) => {
-      setPricingConfig(data.config);
-    });
+      wsService.onMessage<{ config: PricingConfig }>('pricing_config', (data) => {
+        setPricingConfig(data.config);
+      }),
 
-    wsService.onMessage('error', (data) => {
-      toast({
-        title: "Error",
-        description: data.message || "An error occurred",
-        variant: "destructive",
-      });
-    });
+      wsService.onMessage<WsErrorData>('error', (data) => {
+        toast({
+          title: "Error",
+          description: data.message || "An error occurred",
+          variant: "destructive",
+        });
+      }),
 
-    wsService.onMessage('auth_success', () => {
-      // Request initial data after successful authentication
-      if (user) {
-        wsService.send({ type: 'get_analytics' });
-        wsService.send({ type: 'get_products' });
-        wsService.send({ type: 'get_orders' });
-        wsService.send({ type: 'get_users' });
-        wsService.send({ type: 'get_pricing_config' });
-        wsService.send({ type: 'get_categories' });
-      }
-    });
+      wsService.onMessage('auth_success', () => {
+        if (user) {
+          wsService.send({ type: 'get_analytics' });
+          wsService.send({ type: 'get_products' });
+          wsService.send({ type: 'get_orders' });
+          wsService.send({ type: 'get_users' });
+          wsService.send({ type: 'get_pricing_config' });
+          wsService.send({ type: 'get_categories' });
+        }
+      }),
+    ];
 
     return () => {
+      cleanups.forEach(cleanup => cleanup());
       wsService.disconnect();
       setWebSocket(null);
     };

@@ -22,7 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDashboardStore } from "@/store/dashboardStore";
+import { useBrandStore } from "@/store/brandStore";
 import { wsService } from "@/services/websocket";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Edit, Trash2, Upload, Tag, X } from "lucide-react";
@@ -37,7 +37,7 @@ interface BrandFormData {
 }
 
 export default function Brands() {
-  const { brands, setBrands } = useDashboardStore();
+  const { brands, setBrands } = useBrandStore();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -55,20 +55,16 @@ export default function Brands() {
 
   // Request initial data and set up real-time handlers
   useEffect(() => {
-    console.log('Brands component mounted, requesting data...');
-    
     wsService.send({
       type: 'get_brands'
     });
 
     const handleBrandsData = (data) => {
-      console.log('Received brands data:', data);
       setBrands(data.brands || []);
       setIsLoading(false);
     };
 
     const handleBrandCreated = (data) => {
-      console.log('Brand created:', data);
       wsService.send({ type: 'get_brands' });
       toast({
         title: "Brand Created",
@@ -77,7 +73,6 @@ export default function Brands() {
     };
 
     const handleBrandUpdated = (data) => {
-      console.log('Brand updated:', data);
       wsService.send({ type: 'get_brands' });
       toast({
         title: "Brand Updated",
@@ -86,7 +81,6 @@ export default function Brands() {
     };
 
     const handleBrandDeleted = (data) => {
-      console.log('Brand deleted:', data);
       wsService.send({ type: 'get_brands' });
       toast({
         title: "Brand Deleted",
@@ -95,14 +89,12 @@ export default function Brands() {
     };
 
     const handleUploadProgress = (data) => {
-      console.log('Upload progress:', data);
       if (data.progress === 100) {
         setIsUploading(false);
       }
     };
 
     const handleError = (data) => {
-      console.error('WebSocket error:', data);
       setIsLoading(false);
       setIsUploading(false);
       toast({
@@ -113,22 +105,18 @@ export default function Brands() {
     };
 
     // Register message handlers
-    wsService.onMessage("brands_data", handleBrandsData);
-    wsService.onMessage("brand_created", handleBrandCreated);
-    wsService.onMessage("brand created", handleBrandCreated);
-    wsService.onMessage("brand_updated", handleBrandUpdated);
-    wsService.onMessage("brand_deleted", handleBrandDeleted);
-    wsService.onMessage("upload_progress", handleUploadProgress);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("brands_data", handleBrandsData),
+      wsService.onMessage("brand_created", handleBrandCreated),
+      wsService.onMessage("brand created", handleBrandCreated),
+      wsService.onMessage("brand_updated", handleBrandUpdated),
+      wsService.onMessage("brand_deleted", handleBrandDeleted),
+      wsService.onMessage("upload_progress", handleUploadProgress),
+      wsService.onMessage("error", handleError),
+    ];
 
     return () => {
-      wsService.onMessage("brands_data", () => {});
-      wsService.onMessage("brand_created", () => {});
-      wsService.onMessage("brand created", () => {});
-      wsService.onMessage("brand_updated", () => {});
-      wsService.onMessage("brand_deleted", () => {});
-      wsService.onMessage("upload_progress", () => {});
-      wsService.onMessage("error", () => {});
+      cleanups.forEach(cleanup => cleanup());
     };
   }, [setBrands, toast]);
 
@@ -138,9 +126,6 @@ export default function Brands() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('Submitting brand form:', formData);
-    console.log('Editing brand:', editingBrand);
     
     try {
       const brandData = {
@@ -157,8 +142,6 @@ export default function Brands() {
           _id: editingBrand._id || editingBrand.id,
           ...brandData
         };
-        console.log('Sending update_brand with data:', updateData);
-        
         wsService.send({
           type: 'update_brand',
           data: updateData
@@ -168,8 +151,6 @@ export default function Brands() {
           description: "Please wait...",
         });
       } else {
-        console.log('Sending create_brand with data:', brandData);
-        
         wsService.send({
           type: 'create_brand',
           data: brandData
@@ -192,7 +173,6 @@ export default function Brands() {
       setEditingBrand(null);
       
     } catch (error) {
-      console.error('Error in handleSubmit:', error);
       setIsLoading(false);
       toast({
         title: "Error",
@@ -203,8 +183,6 @@ export default function Brands() {
   };
 
   const handleEdit = (brand: any) => {
-    console.log('Editing brand:', brand);
-    
     try {
       setEditingBrand(brand);
       setFormData({
@@ -216,7 +194,6 @@ export default function Brands() {
       setLogoPreview(brand.logo || null); // Show existing logo as preview
       setShowAddModal(true);
     } catch (error) {
-      console.error('Error in handleEdit:', error);
       toast({
         title: "Error",
         description: "Failed to load brand data for editing",
@@ -226,8 +203,6 @@ export default function Brands() {
   };
 
   const handleDelete = (brandId: string) => {
-    console.log('Deleting brand with ID:', brandId);
-    
     if (confirm("Are you sure you want to delete this brand? This will also delete the logo.")) {
       setIsLoading(true);
       wsService.send({
@@ -294,7 +269,6 @@ export default function Brands() {
   };
 
   const resetForm = () => {
-    console.log('Resetting form');
     setEditingBrand(null);
     setFormData({
       name: "",
