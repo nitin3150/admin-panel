@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -78,6 +78,8 @@ export default function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataReceived, setDataReceived] = useState({ products: false, orders: false, users: false });
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const statusOptions = [
     { value: "all", label: "All Statuses" },
@@ -342,6 +344,28 @@ export default function Dashboard() {
     }
   };
 
+  // Recalculate stats whenever orders, users, or products change
+  useEffect(() => {
+    if (!orders.length) return;
+
+    const totalRevenue = orders
+      .filter((order: any) => (order.status || order.order_status) === 'delivered')
+      .reduce((sum: number, order: any) => sum + (parseFloat(order.total || order.total_amount || '0') || 0), 0);
+
+    const activeOrders = orders.filter((order: any) =>
+      ['preparing', 'accepted', 'assigned', 'out_for_delivery'].includes(order.status || order.order_status)
+    ).length;
+
+    setStats({
+      totalRevenue,
+      totalOrders: orders.length,
+      activeOrders,
+      activeUsers: users.length,
+      totalProducts: products.length,
+    });
+  }, [orders, users, products]);
+
+  // Regenerate charts when orders or filters change
   useEffect(() => {
     if (!orders.length) return;
 
@@ -349,7 +373,14 @@ export default function Dashboard() {
     generateOrderCountData();
   }, [orders, chartFilters]);
 
-  const handleFilterChange = (key, value) => {
+  // Clear loading when all data has arrived
+  useEffect(() => {
+    if (dataReceived.products && dataReceived.orders && dataReceived.users) {
+      setIsLoading(false);
+    }
+  }, [dataReceived]);
+
+  const handleFilterChange = (key: keyof ChartFilters, value: string) => {
     setChartFilters(prev => ({ ...prev, [key]: value }));
   };
 
@@ -374,75 +405,55 @@ export default function Dashboard() {
       minAmount: "",
       maxAmount: ""
     });
-    setTimeout(() => {
-      generateFilteredRevenueData();
-      generateOrderCountData();
-    }, 100);
   };
 
   const refreshCharts = () => {
     setIsRefreshing(true);
 
-    // Re-request data from backend
-    wsService.send({ type: 'get_analytics', filters: {} });
+    // Re-request all data from backend
+    wsService.send({ type: 'get_products' });
+    wsService.send({ type: 'get_orders', filters: { limit: 10000 } });
+    wsService.send({ type: 'get_users', filters: {} });
 
-    setTimeout(() => setIsRefreshing(false), 1000);
-    toast({
-      title: "Charts Refreshed",
-      description: "Data has been updated",
-    });
+    // Clear timeout from previous refresh
+    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+    refreshTimeoutRef.current = setTimeout(() => setIsRefreshing(false), 2000);
   };
 
-  // ✅ FIXED: Request initial data
+  // Request initial data and handle responses
   useEffect(() => {
     setIsLoading(true);
+    setDataReceived({ products: false, orders: false, users: false });
 
-    // Request all data
     wsService.send({ type: 'get_products' });
-    wsService.send({
-      type: 'get_orders',
-      filters: { limit: 10000 } // Get all orders for dashboard
-    });
+    wsService.send({ type: 'get_orders', filters: { limit: 10000 } });
     wsService.send({ type: 'get_users', filters: {} });
+
+    // Safety timeout — clear loading after 10s even if some data never arrives
+    const loadingTimeout = setTimeout(() => setIsLoading(false), 10000);
 
     const handleProductsData = (data: WsProductsData) => {
       setProducts(data.products || []);
+      setDataReceived(prev => ({ ...prev, products: true }));
+      setIsRefreshing(false);
     };
 
-    // ✅ FIXED: Handle orders_data for dashboard
     const handleOrdersData = (data: { orders: Array<Record<string, any>>; pagination?: Record<string, unknown> }) => {
       if (data.orders && Array.isArray(data.orders)) {
         setOrders(data.orders);
         setRecentOrders(data.orders.slice(0, 10));
-
-        // Calculate stats from orders
-        const totalRevenue = data.orders
-          .filter((order: any) => (order.status || order.order_status) === 'delivered')
-          .reduce((sum: number, order: any) => sum + (parseFloat(order.total || order.total_amount || '0') || 0), 0);
-
-        const activeOrders = data.orders.filter((order: any) =>
-          ['preparing', 'accepted', 'assigned', 'out_for_delivery'].includes(order.status || order.order_status)
-        ).length;
-
-        setStats({
-          totalRevenue: totalRevenue,
-          totalOrders: data.orders.length,
-          activeOrders: activeOrders,
-          activeUsers: users.length,
-          totalProducts: products.length,
-        });
-
-        setIsLoading(false);
+        setDataReceived(prev => ({ ...prev, orders: true }));
+        setIsRefreshing(false);
       }
     };
 
     const handleUsersData = (data: WsUsersData) => {
       setUsers(data.users || []);
+      setDataReceived(prev => ({ ...prev, users: true }));
+      setIsRefreshing(false);
     };
 
     const handleError = (data: WsErrorData) => {
-      setIsLoading(false);
-
       if (!data.message?.includes('Unknown message type')) {
         toast({
           title: "Error",
@@ -452,26 +463,19 @@ export default function Dashboard() {
       }
     };
 
-    wsService.onMessage("products_data", handleProductsData);
-    wsService.onMessage("orders_data", handleOrdersData);
-    wsService.onMessage("users_data", handleUsersData);
-    wsService.onMessage("error", handleError);
+    const cleanups = [
+      wsService.onMessage("products_data", handleProductsData),
+      wsService.onMessage("orders_data", handleOrdersData),
+      wsService.onMessage("users_data", handleUsersData),
+      wsService.onMessage("error", handleError),
+    ];
 
     return () => {
-      wsService.onMessage("products_data", () => { });
-      wsService.onMessage("orders_data", () => { });
-      wsService.onMessage("users_data", () => { });
-      wsService.onMessage("error", () => { });
+      cleanups.forEach(cleanup => cleanup());
+      clearTimeout(loadingTimeout);
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
     };
   }, []);
-
-  // ✅ Generate charts when orders arrive
-  useEffect(() => {
-    if (orders.length > 0) {
-      generateFilteredRevenueData();
-      generateOrderCountData();
-    }
-  }, [orders]);
 
   const statsCards = [
     {
