@@ -150,8 +150,7 @@ export const OrdersTable = ({
             <TableCell>{order.user_name || 'Unknown'}</TableCell>
             <TableCell>₹{order.total || '0.00'}</TableCell>
             <TableCell className="flex items-center gap-2">
-              <OrderIcon type={order.order_type} />
-              <OrderTypeBadge type={order.order_type} />
+              <OrderTypeBadge type={order.order_type} itemTypes={order.item_types} />
             </TableCell>
             <TableCell><StatusBadge status={order.status || 'pending'} /></TableCell>
             <TableCell>

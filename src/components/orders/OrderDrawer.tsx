@@ -88,7 +88,12 @@ export const OrderDrawer = ({
         <SheetHeader>
           <SheetTitle>Order #{orderId}</SheetTitle>
           <SheetDescription>
-            {order?.order_type?.toUpperCase()} ORDER
+            {(() => {
+              const types = order?.items?.length
+                ? [...new Set(order.items.map(i => i.type))]
+                : order?.order_type ? [order.order_type] : [];
+              return types.map(t => t.toUpperCase()).join(" + ") + " ORDER";
+            })()}
           </SheetDescription>
         </SheetHeader>
 
