@@ -116,6 +116,7 @@ export default function HelpSupport() {
   const [isResponding, setIsResponding] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedTicketRef = useRef<HelpTicket | null>(null);
 
   // ✅ Helper function to safely get phone number
   const getPhoneNumber = (ticket: HelpTicket | null): string => {
@@ -161,6 +162,11 @@ export default function HelpSupport() {
     closed: "outline"
   } as const;
 
+  // Keep ref in sync with state for use in WS handlers
+  useEffect(() => {
+    selectedTicketRef.current = selectedTicket;
+  }, [selectedTicket]);
+
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -171,6 +177,23 @@ export default function HelpSupport() {
       setTimeout(scrollToBottom, 100);
     }
   }, [selectedTicket?.messages]);
+
+  // Auto-refresh ticket detail while modal is open
+  useEffect(() => {
+    if (!showTicketModal || !selectedTicket?._id) return;
+
+    const interval = setInterval(() => {
+      const current = selectedTicketRef.current;
+      if (current) {
+        wsService.send({
+          type: 'get_ticket_detail',
+          ticket_id: current._id
+        });
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [showTicketModal, selectedTicket?._id]);
 
   // Request initial data and set up real-time handlers
   useEffect(() => {
@@ -195,13 +218,12 @@ export default function HelpSupport() {
     };
 
     const handleTicketDetailData = (data: { ticket: HelpTicket | null }) => {
-      // Don't override - keep existing ticket data and merge
-      if (data.ticket && selectedTicket) {
+      const current = selectedTicketRef.current;
+      if (data.ticket && current) {
         const mergedTicket = {
-          ...selectedTicket,
+          ...current,
           ...data.ticket,
-          // Ensure phone is preserved
-          user_phone: data.ticket.user_phone || selectedTicket.user_phone
+          user_phone: data.ticket.user_phone || current.user_phone
         };
         setSelectedTicket(mergedTicket);
       } else if (data.ticket) {
@@ -211,13 +233,14 @@ export default function HelpSupport() {
 
     const handleTicketUpdated = (data: { ticket_id: string }) => {
       // Refresh tickets list
-      wsService.send({ 
-        type: 'get_help_tickets', 
+      wsService.send({
+        type: 'get_help_tickets',
         filters: { status: statusFilter, priority: priorityFilter }
       });
-      
+
       // Refresh ticket detail if modal is open
-      if (selectedTicket && data.ticket_id === selectedTicket._id) {
+      const current = selectedTicketRef.current;
+      if (current && data.ticket_id === current._id) {
         wsService.send({
           type: 'get_ticket_detail',
           ticket_id: data.ticket_id
