@@ -75,6 +75,7 @@ export interface Order {
   delivery_address?: Address;
   items?: OrderItem[];
   payment_method?: string;
+  payment_status?: string;
   total: number;
   created_at: string;
 }

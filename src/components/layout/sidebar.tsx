@@ -14,7 +14,6 @@ import {
   LightbulbIcon,
   Store,
   Bell,
-  Bike,
   Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,11 +50,6 @@ const navigation = [
     name: "Orders",
     href: "/dashboard/orders",
     icon: ShoppingCart,
-  },
-  {
-    name: "Porter Requests",
-    href: "/dashboard/porter",
-    icon: Bike,
   },
   {
     name: "Help & Suggestions",

@@ -23,7 +23,6 @@ import DiscountCoupons from "./pages/Discount";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import NotificationsPage from "@/pages/Notifications";
-import PorterRequests from "./pages/ProductRequests";
 import PincodesPage from "./pages/Pincodes";
 import Monitoring from "./pages/Monitoring";
 
@@ -79,7 +78,6 @@ const AppContent = () => {
         <Route path="brands" element={<Brands />} />
         <Route path="categories" element={<Categories />} />
         <Route path="orders" element={<Orders />} />
-        <Route path="porter" element={<PorterRequests />} />
         <Route path="users" element={<Users />} />
         <Route path="pricing" element={<Pricing />} />
         <Route path="discount" element={<DiscountCoupons />} />
