@@ -55,6 +55,8 @@ export interface PorterItem {
     estimated_distance: number;
     estimated_cost: number;
     notes?: string;
+    recipient_name?: string;
+    phone?: string;
   };
 }
 
