@@ -6,7 +6,7 @@ import { ProductsTable } from "@/components/products/ProductsTable";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import { wsService } from "@/services/websocket";
 import { useToast } from "@/hooks/use-toast";
-import { Product, Brand, Category } from "@/types/product";
+import { Product, Brand, Category, Warehouse } from "@/types/product";
 import { WsProductsData, WsErrorData } from "@/types/websocket";
 import { Plus, Search, Package } from "lucide-react";
 
@@ -15,6 +15,7 @@ export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -45,6 +46,12 @@ export default function Products() {
       toast({ title: "Product Deleted" });
     };
 
+    const handleWarehousesData = (data: { warehouses?: Warehouse[] }) => {
+      if (data.warehouses) {
+        setWarehouses(data.warehouses);
+      }
+    };
+
     const handleError = (data: WsErrorData) => {
       setIsLoading(false);
       if (!data.message?.includes('Unknown message type')) {
@@ -57,10 +64,12 @@ export default function Products() {
       wsService.onMessage("product_created", handleProductCreated),
       wsService.onMessage("product_updated", handleProductUpdated),
       wsService.onMessage("product_deleted", handleProductDeleted),
+      wsService.onMessage("warehouses_data", handleWarehousesData),
       wsService.onMessage("error", handleError),
     ];
 
     wsService.send({ type: 'get_products' });
+    wsService.send({ type: 'get_warehouses' });
 
     return () => {
       cleanups.forEach(cleanup => cleanup());
@@ -147,6 +156,7 @@ export default function Products() {
         product={editingProduct}
         brands={brands}
         categories={categories}
+        warehouses={warehouses}
         onClose={handleFormClose}
         onSubmit={handleFormSubmit}
       />

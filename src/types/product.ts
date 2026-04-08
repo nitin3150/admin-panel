@@ -23,6 +23,19 @@ export interface ImageObject {
     updated_at?: string;
     allow_user_images: boolean;
     allow_user_description: boolean;
+    warehouse?: string;
+  }
+
+  export interface Warehouse {
+    id: string;
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    latitude?: number;
+    longitude?: number;
+    status: boolean;
+    created_at?: string;
   }
   
   export interface Brand {

@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImageUploader } from "@/components/products/ImageUploader";
-import { Product, Brand, Category } from "@/types/product";
+import { Product, Brand, Category, Warehouse } from "@/types/product";
 import { isValidPrice, isValidStock } from "@/utils/validation";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,6 +22,7 @@ interface ProductFormDialogProps {
   product: Product | null;
   brands: Brand[];
   categories: Category[];
+  warehouses: Warehouse[];
   onClose: () => void;
   onSubmit: (data: any) => void;
 }
@@ -31,6 +32,7 @@ export const ProductFormDialog = ({
   product,
   brands,
   categories,
+  warehouses,
   onClose,
   onSubmit,
 }: ProductFormDialogProps) => {
@@ -44,6 +46,7 @@ export const ProductFormDialog = ({
     stock: "",
     category: "",
     brand: "",
+    warehouse: "",
     status: "active",
     keywords: "",
     description: "",
@@ -61,6 +64,7 @@ export const ProductFormDialog = ({
         stock: product.stock?.toString() || "",
         category: product.category || "",
         brand: product.brand || "",
+        warehouse: product.warehouse || "",
         status: product.status || "active",
         keywords: product.keywords?.join(', ') || "",
         description: product.description || "",
@@ -77,6 +81,7 @@ export const ProductFormDialog = ({
         stock: "",
         category: "",
         brand: "",
+        warehouse: "",
         status: "active",
         keywords: "",
         description: "",
@@ -100,6 +105,11 @@ export const ProductFormDialog = ({
       return;
     }
 
+    if (!formData.warehouse) {
+      toast({ title: "Warehouse Required", description: "Please select a warehouse for this product", variant: "destructive" });
+      return;
+    }
+
     const data = {
       name: formData.name,
       actual_price: formData.actual_price ? parseFloat(formData.actual_price) : null,
@@ -108,6 +118,7 @@ export const ProductFormDialog = ({
       stock: parseInt(formData.stock),
       category: formData.category,
       brand: formData.brand,
+      warehouse: formData.warehouse,
       status: formData.status,
       description: formData.description,
       keywords: formData.keywords.split(',').map(k => k.trim()).filter(Boolean),
@@ -234,6 +245,28 @@ export const ProductFormDialog = ({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="warehouse">Warehouse *</Label>
+            <Select
+              value={formData.warehouse}
+              onValueChange={(value) => setFormData({ ...formData, warehouse: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select warehouse" />
+              </SelectTrigger>
+              <SelectContent>
+                {warehouses.filter(w => w.status).map((warehouse) => (
+                  <SelectItem key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name} — {warehouse.city}, {warehouse.state}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Select the warehouse where this product is available for pickup
+            </p>
           </div>
 
           <div className="space-y-2">
