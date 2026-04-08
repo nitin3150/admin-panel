@@ -248,7 +248,7 @@ export const OrderDrawer = ({
                           <MapPin className="inline h-3 w-3 mr-1" />
                           {s.delivery_address.street}, {s.delivery_address.city}, {s.delivery_address.state}
                         </p>
-                        {(s.recipient_name || s.phone) && (
+                        {(s.recipient_name || s.phone || s.estimated_distance) && (
                           <div className="text-sm space-y-1 text-muted-foreground mt-1 ml-4 border-l-2 pl-2">
                             {s.recipient_name && (
                               <p className="flex items-center gap-1.5">
@@ -260,6 +260,12 @@ export const OrderDrawer = ({
                               <p className="flex items-center gap-1.5">
                                 <Phone className="h-3 w-3" />
                                 {s.phone}
+                              </p>
+                            )}
+                            {s.estimated_distance != null && (
+                              <p className="flex items-center gap-1.5">
+                                <MapPin className="h-3 w-3" />
+                                Distance: {s.estimated_distance} km
                               </p>
                             )}
                           </div>
