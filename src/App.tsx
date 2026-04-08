@@ -25,6 +25,7 @@ import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import NotificationsPage from "@/pages/Notifications";
 import PincodesPage from "./pages/Pincodes";
 import Monitoring from "./pages/Monitoring";
+import WarehousesPage from "./pages/Warehouses";
 
 const AppContent = () => {
   const { isAuthenticated, user } = useAuthStore();
@@ -86,6 +87,7 @@ const AppContent = () => {
         <Route path= "notifications" element= {<NotificationsPage />}/>
         <Route path= "pincodes" element= {<PincodesPage />}/>
         <Route path="monitoring" element={<Monitoring />} />
+        <Route path="warehouses" element={<WarehousesPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<NotFound />} />
