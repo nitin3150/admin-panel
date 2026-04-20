@@ -287,7 +287,7 @@ export const ProductFormDialog = ({
               <SelectContent>
                 {warehouses.filter(w => w.status).map((warehouse) => (
                   <SelectItem key={warehouse.id} value={warehouse.id}>
-                    {warehouse.name} — {warehouse.city}, {warehouse.state}
+                    {warehouse.name}{warehouse.city ? ` — ${warehouse.city}, ${warehouse.state}` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
