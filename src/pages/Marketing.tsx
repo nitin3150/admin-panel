@@ -65,7 +65,8 @@ export default function Marketing() {
       if (msg.type === "marketing_banner_deleted") deleteBanner(msg.id);
     };
 
-    wsService.onMessage("*", handleData);
+    const unsubscribe = wsService.onMessage("*", handleData);
+    return () => { unsubscribe(); };
   }, []);
 
   const openCreate = () => {
