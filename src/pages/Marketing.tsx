@@ -1,5 +1,5 @@
 // admin-panel/src/pages/Marketing.tsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +51,6 @@ export default function Marketing() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<typeof EMPTY_BANNER & { image_data?: string }>({ ...EMPTY_BANNER });
-  const bannerImgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     wsService.send({ type: "get_marketing_banners" });
